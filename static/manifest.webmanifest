@@ -1,0 +1,25 @@
+{
+	"name": "Win95 GPT",
+	"short_name": "Win95 GPT",
+	"description": "Asistente estilo Windows 95 con chat, web y exportación de archivos.",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#008080",
+	"theme_color": "#008080",
+	"orientation": "portrait",
+	"icons": [
+		{
+			"src": "/pwa/icon-192.svg",
+			"sizes": "192x192",
+			"type": "image/svg+xml",
+			"purpose": "any maskable"
+		},
+		{
+			"src": "/pwa/icon-512.svg",
+			"sizes": "512x512",
+			"type": "image/svg+xml",
+			"purpose": "any maskable"
+		}
+	]
+}
