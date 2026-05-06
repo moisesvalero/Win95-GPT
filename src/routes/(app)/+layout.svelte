@@ -102,7 +102,22 @@
 		{ name: 'Diseño Web', url: 'https://moisesvalero.es/diseno-web' }
 	];
 
-	const faviconFor = (url: string) => `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=16`;
+	const faviconChainFor = (url: string) => {
+		try {
+			const host = new URL(url).host;
+			return {
+				primary: `https://${host}/favicon.ico`,
+				secondary: `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=16`,
+				fallback: '/pwa/icon-192.svg'
+			};
+		} catch {
+			return {
+				primary: '/pwa/icon-192.svg',
+				secondary: '/pwa/icon-192.svg',
+				fallback: '/pwa/icon-192.svg'
+			};
+		}
+	};
 </script>
 
 <svelte:document onclick={closeIfOutside} />
@@ -214,6 +229,7 @@
 			<div class="window-body menu-body">
 				<div class="start-section-label">Programs</div>
 				{#each projects as project (project.url)}
+					{@const icons = faviconChainFor(project.url)}
 					<button
 						type="button"
 						class="start-link"
@@ -222,7 +238,22 @@
 							window.open(project.url, '_blank', 'noopener,noreferrer');
 						}}
 					>
-						<img src={faviconFor(project.url)} alt="" width="16" height="16" />
+						<img
+							src={icons.primary}
+							alt=""
+							width="16"
+							height="16"
+							onerror={(event) => {
+								const img = event.currentTarget as HTMLImageElement;
+								if (img.dataset.fallbackStep === '2') {
+									img.onerror = null;
+									img.src = icons.fallback;
+									return;
+								}
+								img.dataset.fallbackStep = '2';
+								img.src = icons.secondary;
+							}}
+						/>
 						{project.name}
 					</button>
 				{/each}
