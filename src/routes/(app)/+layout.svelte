@@ -27,6 +27,45 @@
 		await goto(resolve('/chat/new'));
 		await invalidateAll();
 	};
+
+	const renameConversation = async (conversationId: string, currentTitle: string) => {
+		const title = prompt('Nuevo nombre del chat', currentTitle)?.trim();
+		if (!title) return;
+
+		const response = await fetch(`/api/conversations/${conversationId}`, {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ title })
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			alert(errorText || 'No se pudo renombrar el chat');
+			return;
+		}
+
+		await invalidateAll();
+	};
+
+	const deleteConversation = async (conversationId: string) => {
+		if (!confirm('¿Borrar este chat?')) return;
+
+		const response = await fetch(`/api/conversations/${conversationId}`, {
+			method: 'DELETE'
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			alert(errorText || 'No se pudo borrar el chat');
+			return;
+		}
+
+		if (window.location.pathname.includes(`/chat/${conversationId}`)) {
+			await goto(resolve('/chat/new'));
+		}
+
+		await invalidateAll();
+	};
 </script>
 
 <svelte:document onclick={closeIfOutside} />
@@ -50,7 +89,7 @@
 					<strong>Chats</strong>
 					<ul class="tree-view conv-list">
 						{#each conversations as conversation (conversation.id)}
-							<li>
+							<li class="chat-item">
 								<button
 									type="button"
 									class="chat-link"
@@ -61,6 +100,28 @@
 								>
 									📁 {conversation.title}
 								</button>
+								<div class="chat-actions">
+									<button
+										type="button"
+										class="small-btn"
+										onclick={(event) => {
+											event.stopPropagation();
+											void renameConversation(conversation.id, conversation.title);
+										}}
+									>
+										Renombrar
+									</button>
+									<button
+										type="button"
+										class="small-btn"
+										onclick={(event) => {
+											event.stopPropagation();
+											void deleteConversation(conversation.id);
+										}}
+									>
+										Borrar
+									</button>
+								</div>
 							</li>
 						{/each}
 					</ul>
@@ -114,6 +175,26 @@
 		padding: 0;
 		text-align: left;
 		cursor: pointer;
+		flex: 1;
+		min-width: 0;
+		width: 100%;
+	}
+	.chat-item {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 2px 0;
+	}
+	.chat-actions {
+		display: flex;
+		gap: 4px;
+		flex-shrink: 0;
+	}
+	.small-btn {
+		min-width: auto;
+		padding: 1px 6px;
+		font-size: 11px;
+		line-height: 1.2;
 	}
 	@media (max-width: 900px) {
 		.sidebar-toggle { display: inline-block; }
@@ -130,5 +211,7 @@
 			padding: 8px;
 		}
 		.sidebar.open { display: block; }
+		.chat-item { align-items: flex-start; }
+		.chat-actions { flex-wrap: wrap; }
 	}
 </style>

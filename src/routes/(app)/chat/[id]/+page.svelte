@@ -6,6 +6,7 @@
 	import { browser } from '$app/environment';
 	import Prism from 'prismjs';
 	import { env } from '$env/dynamic/public';
+	import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 	import 'prismjs/components/prism-markup';
 	import 'prismjs/components/prism-css';
 	import 'prismjs/components/prism-javascript';
@@ -43,6 +44,99 @@
 	};
 
 	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+	const downloadBlob = (filename: string, blob: Blob) => {
+		if (!browser) return;
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		link.remove();
+		URL.revokeObjectURL(url);
+	};
+
+	const exportMessage = async (content: string, format: 'txt' | 'md' | 'json' | 'pdf') => {
+		if (format === 'txt') {
+			downloadBlob('respuesta.txt', new Blob([content], { type: 'text/plain;charset=utf-8' }));
+			return;
+		}
+		if (format === 'md') {
+			downloadBlob('respuesta.md', new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+			return;
+		}
+		if (format === 'json') {
+			const payload = JSON.stringify({ content }, null, 2);
+			downloadBlob('respuesta.json', new Blob([payload], { type: 'application/json;charset=utf-8' }));
+			return;
+		}
+
+		const pdfDoc = await PDFDocument.create();
+		const pageWidth = 595.28;
+		const pageHeight = 841.89;
+		const margin = 40;
+		const fontSize = 11;
+		const lineHeight = 15;
+		const maxTextWidth = pageWidth - margin * 2;
+		const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+		let page = pdfDoc.addPage([pageWidth, pageHeight]);
+		let cursorY = pageHeight - margin;
+		const pushLine = (line: string) => {
+			if (cursorY < margin + lineHeight) {
+				page = pdfDoc.addPage([pageWidth, pageHeight]);
+				cursorY = pageHeight - margin;
+			}
+			page.drawText(line, {
+				x: margin,
+				y: cursorY,
+				size: fontSize,
+				font,
+				color: rgb(0, 0, 0)
+			});
+			cursorY -= lineHeight;
+		};
+
+		const textLines = content.replace(/\r\n/g, '\n').split('\n');
+		for (const rawLine of textLines) {
+			const words = rawLine.split(/\s+/).filter(Boolean);
+			if (!words.length) {
+				pushLine(' ');
+				continue;
+			}
+			let currentLine = '';
+			for (const word of words) {
+				const candidate = currentLine ? `${currentLine} ${word}` : word;
+				const width = font.widthOfTextAtSize(candidate, fontSize);
+				if (width <= maxTextWidth) {
+					currentLine = candidate;
+					continue;
+				}
+				if (currentLine) pushLine(currentLine);
+				if (font.widthOfTextAtSize(word, fontSize) <= maxTextWidth) {
+					currentLine = word;
+					continue;
+				}
+				let chunk = '';
+				for (const ch of word) {
+					const next = `${chunk}${ch}`;
+					if (font.widthOfTextAtSize(next, fontSize) <= maxTextWidth) {
+						chunk = next;
+					} else {
+						if (chunk) pushLine(chunk);
+						chunk = ch;
+					}
+				}
+				currentLine = chunk;
+			}
+			if (currentLine) pushLine(currentLine);
+		}
+
+		const pdfBytes = await pdfDoc.save();
+		const pdfByteArray = Uint8Array.from(pdfBytes);
+		downloadBlob('respuesta.pdf', new Blob([pdfByteArray], { type: 'application/pdf' }));
+	};
 
 	const onFileChange = async (event: Event) => {
 		const input = event.currentTarget as HTMLInputElement;
@@ -179,6 +273,20 @@
 				<div class="bubble">
 					{#if message.role === 'assistant'}
 						<div use:renderMarkdown={message.content}></div>
+						<div class="assistant-actions">
+							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'txt')}>
+								Guardar TXT
+							</button>
+							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'md')}>
+								Guardar MD
+							</button>
+							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'json')}>
+								Guardar JSON
+							</button>
+							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'pdf')}>
+								Guardar PDF
+							</button>
+						</div>
 					{:else}
 						{message.content}
 					{/if}
@@ -228,6 +336,18 @@
 	.row.assistant { justify-content: flex-start; }
 	.bubble { max-width: 78%; padding: 8px; background: #fff; border: 2px solid #808080; }
 	.row.user .bubble { background: #e8f4ff; }
+	.assistant-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+		margin-top: 6px;
+	}
+	.tiny-btn {
+		padding: 2px 6px;
+		min-height: 22px;
+		font-size: 11px;
+		line-height: 1;
+	}
 	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 	.model-row { grid-column: 1 / -1; align-items: center; }
 	.img-name {
