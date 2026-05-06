@@ -31,7 +31,7 @@
 
 					<div class="field-row">
 						<button type="submit" formaction="?/admin">Entrar como Admin</button>
-						<button type="submit" formaction="?/guest">Entrar como Invitado</button>
+						<button type="submit" formaction="?/guest" formnovalidate>Entrar como Invitado</button>
 					</div>
 				</fieldset>
 			</form>
