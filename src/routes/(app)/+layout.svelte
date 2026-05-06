@@ -10,12 +10,16 @@
 	let taskTabs = $derived(conversations.slice(0, 8));
 	let startOpen = $state(false);
 	let sidebarOpen = $state(false);
-	let startMenuRef: HTMLElement | null = null;
+	let windowMinimized = $state(false);
+	let windowClosed = $state(false);
+	let windowMaximized = $state(false);
+	let windowVisible = $derived(!windowMinimized && !windowClosed);
 	const supabase = createBrowserSupabaseClient();
 
 	const closeIfOutside = (event: MouseEvent) => {
-		if (!startMenuRef) return;
-		if (!startMenuRef.contains(event.target as Node)) startOpen = false;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		if (!target.closest('.taskbar')) startOpen = false;
 	};
 
 	const logout = async () => {
@@ -28,6 +32,11 @@
 		sidebarOpen = false;
 		await goto(resolve('/chat/new'));
 		await invalidateAll();
+	};
+
+	const restoreWindow = () => {
+		windowMinimized = false;
+		windowClosed = false;
 	};
 
 	const renameConversation = async (conversationId: string, currentTitle: string) => {
@@ -86,75 +95,109 @@
 <svelte:document onclick={closeIfOutside} />
 
 <div class="desktop">
-	<div class="window main-window">
-		<div class="title-bar">
-			<div class="title-bar-text">Win95 GPT</div>
-			<button class="sidebar-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle sidebar">
-				☰
-			</button>
-			<div class="title-bar-controls">
-				<button aria-label="Minimize"></button>
-				<button aria-label="Maximize"></button>
-				<button aria-label="Close"></button>
+	<div class="desktop-icons">
+		<button type="button" class="desktop-icon">
+			<span class="icon-emoji" aria-hidden="true">🖥️</span>
+			<span class="icon-label">Mi PC</span>
+		</button>
+		<button type="button" class="desktop-icon">
+			<span class="icon-emoji" aria-hidden="true">🗑️</span>
+			<span class="icon-label">Papelera de reciclaje</span>
+		</button>
+		<button type="button" class="desktop-icon" onclick={restoreWindow}>
+			<span class="icon-emoji" aria-hidden="true">💬</span>
+			<span class="icon-label">Win95 GPT</span>
+		</button>
+		<button
+			type="button"
+			class="desktop-icon"
+			onclick={async () => {
+				restoreWindow();
+				await newChat();
+			}}
+		>
+			<span class="icon-emoji" aria-hidden="true">➕</span>
+			<span class="icon-label">Nuevo chat</span>
+		</button>
+	</div>
+	{#if windowVisible}
+		<div class="window main-window" class:maximized={windowMaximized}>
+			<div class="title-bar">
+				<div class="title-bar-text">Win95 GPT</div>
+				<button class="sidebar-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle sidebar">
+					☰
+				</button>
+				<div class="title-bar-controls">
+					<button aria-label="Minimize" onclick={() => (windowMinimized = true)}></button>
+					<button aria-label="Maximize" onclick={() => (windowMaximized = !windowMaximized)}></button>
+					<button
+						aria-label="Close"
+						onclick={() => {
+							windowClosed = true;
+							windowMinimized = false;
+						}}
+					></button>
+				</div>
+			</div>
+			<div class="window-body body">
+				<aside class="sidebar" class:open={sidebarOpen}>
+					<div class="field-row-stacked">
+						<strong>Chats</strong>
+						<ul class="tree-view conv-list">
+							{#each conversations as conversation (conversation.id)}
+								<li class="chat-item">
+									<button
+										type="button"
+										class="chat-link"
+										onclick={() => {
+											sidebarOpen = false;
+											window.location.assign(`/chat/${conversation.id}`);
+										}}
+									>
+										📁 {conversation.title}
+									</button>
+									<div class="chat-actions">
+										<button
+											type="button"
+											class="small-btn"
+											onclick={(event) => {
+												event.stopPropagation();
+												void renameConversation(conversation.id, conversation.title);
+											}}
+										>
+											Renombrar
+										</button>
+										<button
+											type="button"
+											class="small-btn"
+											onclick={(event) => {
+												event.stopPropagation();
+												void deleteConversation(conversation.id);
+											}}
+										>
+											Borrar
+										</button>
+									</div>
+								</li>
+							{/each}
+						</ul>
+						<button onclick={newChat}>📄 Nuevo chat</button>
+					</div>
+				</aside>
+				<section class="content">{@render children()}</section>
 			</div>
 		</div>
-		<div class="window-body body">
-			<aside class="sidebar" class:open={sidebarOpen}>
-				<div class="field-row-stacked">
-					<strong>Chats</strong>
-					<ul class="tree-view conv-list">
-						{#each conversations as conversation (conversation.id)}
-							<li class="chat-item">
-								<button
-									type="button"
-									class="chat-link"
-									onclick={() => {
-										sidebarOpen = false;
-										window.location.assign(`/chat/${conversation.id}`);
-									}}
-								>
-									📁 {conversation.title}
-								</button>
-								<div class="chat-actions">
-									<button
-										type="button"
-										class="small-btn"
-										onclick={(event) => {
-											event.stopPropagation();
-											void renameConversation(conversation.id, conversation.title);
-										}}
-									>
-										Renombrar
-									</button>
-									<button
-										type="button"
-										class="small-btn"
-										onclick={(event) => {
-											event.stopPropagation();
-											void deleteConversation(conversation.id);
-										}}
-									>
-										Borrar
-									</button>
-								</div>
-							</li>
-						{/each}
-					</ul>
-					<button onclick={newChat}>📄 Nuevo chat</button>
-				</div>
-			</aside>
-			<section class="content">{@render children()}</section>
-		</div>
-	</div>
+	{/if}
 </div>
 
-<footer class="taskbar" bind:this={startMenuRef}>
+<footer class="taskbar">
 	<button class="start-btn" onclick={() => (startOpen = !startOpen)}>
 		<span class="start-logo" aria-hidden="true">
 			<span class="sq red"></span><span class="sq green"></span><span class="sq blue"></span><span class="sq yellow"></span>
 		</span>
 		Inicio
 	</button>
+	<button class="task-tab restore-tab" class:active={windowVisible} onclick={restoreWindow}>💬 Win95 GPT</button>
 	<div class="task-tabs">
 		{#each taskTabs as tab (tab.id)}
 			<button
@@ -179,7 +222,7 @@
 						class="start-link"
 						onclick={() => {
 							startOpen = false;
-							window.open(project.url, '_blank', 'noopener,noreferrer');
+							window.location.assign(project.url);
 						}}
 					>
 						<img src={faviconFor(project.url)} alt="" width="16" height="16" />
@@ -195,9 +238,61 @@
 </footer>
 
 <style>
-	.desktop { padding: 8px 8px 42px; min-height: 100vh; }
+	.desktop {
+		position: relative;
+		padding: 8px 8px 42px;
+		min-height: 100vh;
+	}
+	.desktop-icons {
+		position: absolute;
+		top: 10px;
+		left: 10px;
+		z-index: 1;
+		display: grid;
+		grid-auto-rows: min-content;
+		gap: 8px;
+		width: 110px;
+	}
+	.desktop-icon {
+		display: grid;
+		justify-items: center;
+		gap: 2px;
+		width: 100%;
+		padding: 4px;
+		border: 1px solid transparent;
+		background: transparent;
+		color: #fff;
+		text-shadow: 1px 1px 0 #000;
+	}
+	.desktop-icon:hover,
+	.desktop-icon:focus-visible {
+		border-color: #fff;
+		background: #00008055;
+		outline: none;
+	}
+	.icon-emoji {
+		font-size: 24px;
+		line-height: 1;
+	}
+	.icon-label {
+		font-size: 12px;
+		line-height: 1.2;
+		text-align: center;
+	}
 	.main-window { min-height: calc(100vh - 58px); }
+	.main-window.maximized {
+		position: fixed;
+		top: 6px;
+		left: 6px;
+		right: 6px;
+		bottom: 40px;
+		z-index: 10;
+		min-height: auto;
+	}
 	.body { display: grid; grid-template-columns: 260px 1fr; gap: 10px; min-height: calc(100vh - 110px); }
+	.main-window.maximized .body {
+		min-height: calc(100vh - 98px);
+	}
 	.sidebar { border-right: 1px solid #808080; padding-right: 8px; }
 	.sidebar-toggle { display: none; margin-left: auto; margin-right: 8px; min-width: 30px; }
 	.conv-list { height: 60vh; overflow-y: auto; margin: 0.5rem 0; }
@@ -249,6 +344,10 @@
 	.task-tab.active {
 		border: 2px inset #c0c0c0;
 		background: #dfdfdf;
+	}
+	.restore-tab {
+		min-width: 120px;
+		max-width: 150px;
 	}
 	.clock { border: 2px inset #c0c0c0; padding: 2px 8px; min-width: 64px; text-align: center; }
 	.start-menu { position: absolute; bottom: 38px; left: 8px; z-index: 99; min-width: 220px; }
