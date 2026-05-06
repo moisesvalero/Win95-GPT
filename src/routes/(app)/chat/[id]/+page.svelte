@@ -4,11 +4,20 @@
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
 	import { browser } from '$app/environment';
+	import Prism from 'prismjs';
+	import { env } from '$env/dynamic/public';
+	import 'prismjs/components/prism-markup';
+	import 'prismjs/components/prism-css';
+	import 'prismjs/components/prism-javascript';
+	import 'prismjs/components/prism-typescript';
+	import 'prismjs/components/prism-json';
+	import 'prismjs/components/prism-bash';
 
 	let { data }: { data: PageData } = $props();
 	let conversationId = $derived(data.conversation.id as string);
 	let initialMessages = $derived((data.messages ?? []) as Message[]);
 	let messages = $state([] as Message[]);
+	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
 	let prompt = $state('');
 	let isStreaming = $state(false);
 	let scroller: HTMLDivElement | null = null;
@@ -21,12 +30,16 @@
 
 	const renderMarkdown = (node: HTMLElement, content: string) => {
 		node.innerHTML = renderAssistant(content);
+		node.querySelectorAll('pre code').forEach((block) => Prism.highlightElement(block as HTMLElement));
 		return {
 			update(next: string) {
 				node.innerHTML = renderAssistant(next);
+				node.querySelectorAll('pre code').forEach((block) => Prism.highlightElement(block as HTMLElement));
 			}
 		};
 	};
+
+	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 	const saveMessage = async (role: Role, content: string) => {
 		await fetch(`/api/chat?id=${conversationId}&persist=1`, {
@@ -77,6 +90,7 @@
 			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
 				conversationId,
+				model: selectedModel,
 				messages: messages.map((m) => ({ role: m.role, content: m.content }))
 			})
 		});
@@ -94,8 +108,13 @@
 			const { done, value } = await reader.read();
 			if (done) break;
 			const chunk = decoder.decode(value, { stream: true });
-			finalText += chunk;
-			messages = messages.map((m) => (m.id === assistantMessage.id ? { ...m, content: finalText } : m));
+			const parts = chunk.split(/(\s+)/);
+			for (const part of parts) {
+				if (!part) continue;
+				finalText += part;
+				messages = messages.map((m) => (m.id === assistantMessage.id ? { ...m, content: finalText } : m));
+				await sleep(12);
+			}
 		}
 
 		await saveMessage('assistant', finalText);
@@ -136,6 +155,13 @@
 	</div>
 
 	<div class="composer">
+		<div class="field-row model-row">
+			<label for="model">Modelo:</label>
+			<select id="model" bind:value={selectedModel} disabled={isStreaming}>
+				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
+				<option value="gpt-4.1-mini">gpt-4.1-mini</option>
+			</select>
+		</div>
 		<textarea
 			rows="3"
 			placeholder="Escribe tu mensaje..."
@@ -156,5 +182,15 @@
 	.bubble { max-width: 78%; padding: 8px; background: #fff; border: 2px solid #808080; }
 	.row.user .bubble { background: #e8f4ff; }
 	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+	.model-row { grid-column: 1 / -1; align-items: center; }
+	:global(.messages pre) {
+		margin: 0.5rem 0;
+		padding: 0.5rem;
+		background: #1e1e1e;
+		color: #f8f8f2;
+		overflow-x: auto;
+	}
+	:global(.messages code) { font-family: Consolas, 'Courier New', monospace; }
+	:global(.messages p) { margin: 0.35rem 0; }
 	textarea { width: 100%; min-height: 68px; resize: vertical; }
 </style>

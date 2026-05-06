@@ -1,14 +1,16 @@
 import type { Role } from '$lib/types';
 import { openai } from '$lib/openai';
+import { env as publicEnv } from '$env/dynamic/public';
 import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const session = await locals.getSession();
 	if (!session) return new Response('Unauthorized', { status: 401 });
 
-	const { messages, conversationId } = await request.json();
+	const { messages, conversationId, model } = await request.json();
+	const selectedModel = (model as string | undefined) || publicEnv.PUBLIC_MODEL || 'gpt-5.4-mini';
 	const stream = await openai.chat.completions.create({
-		model: 'gpt-5.4-mini',
+		model: selectedModel,
 		stream: true,
 		messages: [
 			{

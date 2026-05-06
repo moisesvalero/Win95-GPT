@@ -2,10 +2,12 @@
 	import { createBrowserSupabaseClient } from '$lib/supabase';
 	import type { Conversation } from '$lib/types';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	let { data, children } = $props();
 	let conversations = $derived((data.conversations ?? []) as Conversation[]);
 	let startOpen = $state(false);
+	let sidebarOpen = $state(false);
 	let startMenuRef: HTMLElement | null = null;
 	const supabase = createBrowserSupabaseClient();
 
@@ -21,7 +23,8 @@
 
 	const newChat = async () => {
 		startOpen = false;
-		await goto('/chat/new');
+		sidebarOpen = false;
+		await goto(resolve('/chat/new'));
 		await invalidateAll();
 	};
 </script>
@@ -32,6 +35,9 @@
 	<div class="window main-window">
 		<div class="title-bar">
 			<div class="title-bar-text">Win95 GPT</div>
+			<button class="sidebar-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle sidebar">
+				☰
+			</button>
 			<div class="title-bar-controls">
 				<button aria-label="Minimize"></button>
 				<button aria-label="Maximize"></button>
@@ -39,7 +45,7 @@
 			</div>
 		</div>
 		<div class="window-body body">
-			<aside class="sidebar">
+			<aside class="sidebar" class:open={sidebarOpen}>
 				<div class="field-row-stacked">
 					<strong>Chats</strong>
 					<ul class="tree-view conv-list">
@@ -48,7 +54,10 @@
 								<button
 									type="button"
 									class="chat-link"
-									onclick={() => goto(`/chat/${conversation.id}`)}
+									onclick={() => {
+										sidebarOpen = false;
+										window.location.assign(`/chat/${conversation.id}`);
+									}}
 								>
 									📁 {conversation.title}
 								</button>
@@ -85,6 +94,7 @@
 	.main-window { min-height: calc(100vh - 58px); }
 	.body { display: grid; grid-template-columns: 260px 1fr; gap: 10px; min-height: calc(100vh - 110px); }
 	.sidebar { border-right: 1px solid #808080; padding-right: 8px; }
+	.sidebar-toggle { display: none; margin-left: auto; margin-right: 8px; min-width: 30px; }
 	.conv-list { height: 60vh; overflow-y: auto; margin: 0.5rem 0; }
 	.content { min-width: 0; }
 	.taskbar {
@@ -104,5 +114,21 @@
 		padding: 0;
 		text-align: left;
 		cursor: pointer;
+	}
+	@media (max-width: 900px) {
+		.sidebar-toggle { display: inline-block; }
+		.body { grid-template-columns: 1fr; }
+		.sidebar {
+			display: none;
+			position: absolute;
+			z-index: 30;
+			width: min(280px, 84vw);
+			max-height: calc(100vh - 130px);
+			overflow: auto;
+			background: silver;
+			border: 2px outset #c0c0c0;
+			padding: 8px;
+		}
+		.sidebar.open { display: block; }
 	}
 </style>
