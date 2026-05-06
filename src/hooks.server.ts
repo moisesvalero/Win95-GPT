@@ -25,7 +25,15 @@ const getAllowedEmails = () => {
 };
 
 export const handle: Handle = async ({ event, resolve }) => {
-	if (!publicEnv.PUBLIC_SUPABASE_URL || !publicEnv.PUBLIC_SUPABASE_ANON_KEY) {
+	const supabaseUrl = (publicEnv.PUBLIC_SUPABASE_URL ?? '').trim();
+	const supabaseAnon = (publicEnv.PUBLIC_SUPABASE_ANON_KEY ?? '').trim();
+
+	if (!supabaseUrl || !supabaseAnon) {
+		console.error('[AUTH_INIT_ERROR] Missing PUBLIC_SUPABASE_URL or PUBLIC_SUPABASE_ANON_KEY', {
+			hasUrl: Boolean(supabaseUrl),
+			hasAnon: Boolean(supabaseAnon),
+			path: event.url.pathname
+		});
 		return new Response(
 			'Faltan variables de entorno de Supabase: PUBLIC_SUPABASE_URL y/o PUBLIC_SUPABASE_ANON_KEY',
 			{ status: 500 }
@@ -33,8 +41,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	event.locals.supabase = createServerClient(
-		publicEnv.PUBLIC_SUPABASE_URL,
-		publicEnv.PUBLIC_SUPABASE_ANON_KEY,
+		supabaseUrl,
+		supabaseAnon,
 		{
 			cookies: {
 				getAll: () => event.cookies.getAll(),

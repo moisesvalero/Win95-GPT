@@ -35,6 +35,7 @@ export const actions: Actions = {
 
 			throw redirect(303, '/chat/new');
 		} catch (error) {
+			console.error('[LOGIN_ADMIN_ERROR]', error);
 			if (isRedirect(error)) throw error;
 			const message = error instanceof Error ? error.message : 'Error inesperado en login';
 			return fail(500, { error: message });
@@ -64,6 +65,7 @@ export const actions: Actions = {
 
 			throw redirect(303, '/chat/new');
 		} catch (error) {
+			console.error('[LOGIN_GUEST_ERROR]', error);
 			if (isRedirect(error)) throw error;
 			const message = error instanceof Error ? error.message : 'Error inesperado en login invitado';
 			return fail(500, { error: message });
