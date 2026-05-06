@@ -6,6 +6,7 @@ import { redirect, type Handle } from '@sveltejs/kit';
 const getAllowedEmails = () => {
 	const emails = new Set<string>();
 	if (privateEnv.ALLOWED_EMAIL) emails.add(privateEnv.ALLOWED_EMAIL.trim().toLowerCase());
+	if (privateEnv.GUEST_EMAIL) emails.add(privateEnv.GUEST_EMAIL.trim().toLowerCase());
 	const demoEmails = (privateEnv.DEMO_EMAILS ?? '')
 		.split(',')
 		.map((email) => email.trim().toLowerCase())
@@ -56,11 +57,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const session = await event.locals.getSession();
 	const isLoginPage = event.url.pathname.startsWith('/login');
 	const allowedEmails = getAllowedEmails();
-	const allowGuestLogin = (privateEnv.ALLOW_GUEST_LOGIN ?? 'false').toLowerCase() === 'true';
-
-	if (session && !session.user.email && allowGuestLogin) {
-		return resolve(event);
-	}
 
 	if (session && !allowedEmails.has((session.user.email ?? '').toLowerCase())) {
 		await event.locals.supabase.auth.signOut();

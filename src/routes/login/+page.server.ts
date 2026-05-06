@@ -18,32 +18,53 @@ export const load: PageServerLoad = async ({ url }) => ({
 
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
-		const data = await request.formData();
-		const email = String(data.get('email') ?? '').trim().toLowerCase();
-		const password = String(data.get('password') ?? '');
+		try {
+			const data = await request.formData();
+			const email = String(data.get('email') ?? '').trim().toLowerCase();
+			const password = String(data.get('password') ?? '');
 
-		if (!isAllowedLoginEmail(email)) {
-			return fail(403, { error: 'Acceso denegado', email });
+			if (!isAllowedLoginEmail(email)) {
+				return fail(403, { error: 'Acceso denegado', email });
+			}
+
+			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
+
+			if (error) {
+				return fail(400, { error: error.message, email });
+			}
+
+			throw redirect(303, '/chat/new');
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
+			return fail(500, { error: message });
 		}
-
-		const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
-
-		if (error) {
-			return fail(400, { error: error.message, email });
-		}
-
-		throw redirect(303, '/chat/new');
 	},
 	guest: async ({ locals }) => {
-		if ((env.ALLOW_GUEST_LOGIN ?? 'false').toLowerCase() !== 'true') {
-			return fail(403, { error: 'Modo invitado desactivado' });
-		}
+		try {
+			if ((env.ALLOW_GUEST_LOGIN ?? 'false').toLowerCase() !== 'true') {
+				return fail(403, { error: 'Modo invitado desactivado' });
+			}
 
-		const { error } = await locals.supabase.auth.signInAnonymously();
-		if (error) {
-			return fail(400, { error: error.message });
-		}
+			const guestEmail = (env.GUEST_EMAIL ?? '').trim().toLowerCase();
+			const guestPassword = env.GUEST_PASSWORD ?? '';
+			if (!guestEmail || !guestPassword) {
+				return fail(500, {
+					error: 'Falta configurar GUEST_EMAIL/GUEST_PASSWORD en variables de entorno.'
+				});
+			}
 
-		throw redirect(303, '/chat/new');
+			const { error } = await locals.supabase.auth.signInWithPassword({
+				email: guestEmail,
+				password: guestPassword
+			});
+			if (error) {
+				return fail(400, { error: `Invitado no disponible: ${error.message}` });
+			}
+
+			throw redirect(303, '/chat/new');
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'No se pudo iniciar sesión de invitado.';
+			return fail(500, { error: message });
+		}
 	}
 };

@@ -67,15 +67,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { messages, conversationId, model, useWeb, imageDataUrl } = await request.json();
 		const userEmail = (session.user.email ?? '').toLowerCase();
 		const demoEmails = getDemoEmails();
-		const isAnonymousGuest = !session.user.email;
-		const isDemoUser = demoEmails.includes(userEmail) || isAnonymousGuest;
+		const isGuestUser = userEmail !== '' && userEmail === (privateEnv.GUEST_EMAIL ?? '').trim().toLowerCase();
+		const isDemoUser = demoEmails.includes(userEmail) || isGuestUser;
 
 		if (isDemoUser) {
 			const maxPromptChars = Number(
-				isAnonymousGuest ? privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700' : privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200'
+				isGuestUser ? privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700' : privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200'
 			);
 			const maxResponsesPerDay = Number(
-				isAnonymousGuest
+				isGuestUser
 					? privateEnv.GUEST_MAX_RESPONSES_PER_DAY ?? '8'
 					: privateEnv.DEMO_MAX_RESPONSES_PER_DAY ?? '20'
 			);
