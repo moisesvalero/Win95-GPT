@@ -30,7 +30,7 @@
 					<input id="password" name="password" type="password" required />
 
 					<div class="field-row">
-						<button type="submit">Entrar como Admin</button>
+						<button type="submit" formaction="?/admin">Entrar como Admin</button>
 						<button type="submit" formaction="?/guest">Entrar como Invitado</button>
 					</div>
 				</fieldset>

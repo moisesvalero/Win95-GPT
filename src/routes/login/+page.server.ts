@@ -17,7 +17,7 @@ export const load: PageServerLoad = async ({ url }) => ({
 });
 
 export const actions: Actions = {
-	default: async ({ request, locals }) => {
+	admin: async ({ request, locals }) => {
 		try {
 			const data = await request.formData();
 			const email = String(data.get('email') ?? '').trim().toLowerCase();
