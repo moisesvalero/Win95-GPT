@@ -325,13 +325,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		const messagePayload: Array<{ role: Role; content: string | Array<any> }> = [...chatMessages];
 		if (imageDataUrl && messagePayload.length > 0) {
-			const lastIndex = messagePayload.length - 1;
-			const last = messagePayload[lastIndex];
-			if (last.role === 'user') {
-				messagePayload[lastIndex] = {
+			const lastUserIndex = [...messagePayload]
+				.map((message, index) => ({ message, index }))
+				.reverse()
+				.find((entry) => entry.message.role === 'user')?.index;
+			if (typeof lastUserIndex === 'number') {
+				const lastUser = messagePayload[lastUserIndex];
+				messagePayload[lastUserIndex] = {
 					role: 'user',
 					content: [
-						{ type: 'text', text: last.content || 'Analiza la imagen.' },
+						{ type: 'text', text: String(lastUser.content || 'Analiza la imagen.') },
 						{ type: 'image_url', image_url: { url: imageDataUrl } }
 					]
 				};

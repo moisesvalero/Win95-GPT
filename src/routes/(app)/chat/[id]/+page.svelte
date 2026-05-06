@@ -162,12 +162,45 @@
 		if (!file) return;
 
 		attachedImageName = file.name;
-		attachedImageDataUrl = await new Promise<string>((resolve, reject) => {
+		const originalDataUrl = await new Promise<string>((resolve, reject) => {
 			const reader = new FileReader();
 			reader.onload = () => resolve(String(reader.result ?? ''));
 			reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
 			reader.readAsDataURL(file);
 		});
+
+		const shrinkImageDataUrl = async (dataUrl: string): Promise<string> => {
+			if (!browser) return dataUrl;
+			const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+				const el = new Image();
+				el.onload = () => resolve(el);
+				el.onerror = () => reject(new Error('No se pudo procesar la imagen'));
+				el.src = dataUrl;
+			});
+
+			const maxDimension = 1400;
+			const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+			const targetWidth = Math.max(1, Math.round(img.width * scale));
+			const targetHeight = Math.max(1, Math.round(img.height * scale));
+			const canvas = document.createElement('canvas');
+			canvas.width = targetWidth;
+			canvas.height = targetHeight;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) return dataUrl;
+			ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+			// Approx max 1.8MB base64 payload to avoid serverless size limits.
+			const maxPayloadChars = 1_800_000;
+			let quality = 0.85;
+			let encoded = canvas.toDataURL('image/jpeg', quality);
+			while (encoded.length > maxPayloadChars && quality > 0.35) {
+				quality -= 0.1;
+				encoded = canvas.toDataURL('image/jpeg', quality);
+			}
+			return encoded;
+		};
+
+		attachedImageDataUrl = await shrinkImageDataUrl(originalDataUrl);
 	};
 
 	const saveMessage = async (role: Role, content: string) => {
@@ -215,6 +248,7 @@
 		};
 		messages = [...messages, assistantMessage];
 
+		const currentImageDataUrl = attachedImageDataUrl || null;
 		const response = await fetch('/api/chat', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
@@ -222,13 +256,10 @@
 				conversationId,
 				model: selectedModel,
 				useWeb: useWebSearch,
-				imageDataUrl: attachedImageDataUrl || null,
+				imageDataUrl: currentImageDataUrl,
 				messages: messages.map((m) => ({ role: m.role, content: m.content }))
 			})
 		});
-
-		attachedImageDataUrl = '';
-		attachedImageName = '';
 
 		if (!response.ok) {
 			const errorText = await response.text();
@@ -264,6 +295,8 @@
 		}
 
 		await saveMessage('assistant', finalText);
+		attachedImageDataUrl = '';
+		attachedImageName = '';
 		if (pendingExportFormat) {
 			messageExports = {
 				...messageExports,
