@@ -5,15 +5,45 @@ body {
 	min-height: 100%;
 	font-family: 'MS Sans Serif', Arial, sans-serif;
 	background: #008080;
+	cursor:
+		url('https://unpkg.com/98.css@0.1.20/dist/cursors/default.cur'),
+		auto;
 }
 
 * {
 	box-sizing: border-box;
 	font-family: 'MS Sans Serif', Arial, sans-serif;
+	cursor:
+		url('https://unpkg.com/98.css@0.1.20/dist/cursors/default.cur'),
+		auto;
 }
 
 a {
 	color: inherit;
+}
+
+a,
+button,
+[role='button'],
+input[type='button'],
+input[type='submit'],
+input[type='reset'],
+summary {
+	cursor:
+		url('https://unpkg.com/98.css@0.1.20/dist/cursors/pointer.cur'),
+		pointer;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+input[type='url'],
+input[type='number'],
+textarea {
+	cursor:
+		url('https://unpkg.com/98.css@0.1.20/dist/cursors/text.cur'),
+		text;
 }
 
 /* Evita zoom al enfocar campos en iOS sin tocar todo el texto */
