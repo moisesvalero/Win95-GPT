@@ -8,6 +8,10 @@
 	let { data, children } = $props();
 	let conversations = $derived((data.conversations ?? []) as Conversation[]);
 	let taskTabs = $derived(conversations.slice(0, 8));
+	let activeConversationId = $derived.by(() => {
+		const match = $page.url.pathname.match(/^\/chat\/([^/]+)$/);
+		return match?.[1] ?? null;
+	});
 	let startOpen = $state(false);
 	let sidebarOpen = $state(false);
 	let windowMinimized = $state(false);
@@ -37,6 +41,15 @@
 	const restoreWindow = () => {
 		windowMinimized = false;
 		windowClosed = false;
+	};
+
+	const closeCurrentChat = async () => {
+		if (!activeConversationId) {
+			windowClosed = true;
+			windowMinimized = false;
+			return;
+		}
+		await deleteConversation(activeConversationId);
 	};
 
 	const renameConversation = async (conversationId: string, currentTitle: string) => {
@@ -119,13 +132,7 @@
 				<div class="title-bar-controls">
 					<button aria-label="Minimize" onclick={() => (windowMinimized = true)}></button>
 					<button aria-label="Maximize" onclick={() => (windowMaximized = !windowMaximized)}></button>
-					<button
-						aria-label="Close"
-						onclick={() => {
-							windowClosed = true;
-							windowMinimized = false;
-						}}
-					></button>
+					<button aria-label="Close" onclick={closeCurrentChat}></button>
 				</div>
 			</div>
 			<div class="window-body body">
@@ -187,7 +194,6 @@
 		Inicio
 	</button>
 	<div class="task-middle">
-		<button class="task-tab app-tab" class:active={windowVisible} onclick={restoreWindow}>💬 Win95 GPT</button>
 		<div class="task-tabs">
 			{#each taskTabs as tab (tab.id)}
 				<button
@@ -344,11 +350,6 @@
 	.task-tab.active {
 		border: 2px inset #c0c0c0;
 		background: #dfdfdf;
-	}
-	.app-tab {
-		min-width: 128px;
-		max-width: 170px;
-		flex-shrink: 0;
 	}
 	.clock { border: 2px inset #c0c0c0; padding: 2px 8px; min-width: 64px; text-align: center; }
 	.start-menu { position: absolute; bottom: 38px; left: 8px; z-index: 99; min-width: 220px; }
