@@ -84,3 +84,8 @@ Abre `http://localhost:5173`.
 
 - **Admin**: email + password (usuario real de Supabase Auth)
 - **Invitado**: botón sin password (usa `GUEST_EMAIL/GUEST_PASSWORD` en backend)
+
+## 7) Licencia
+
+Este proyecto usa licencia **CC BY-NC 4.0** (`LICENSE`), por lo que no se permite
+uso comercial ni monetización sin permiso explícito del autor.
