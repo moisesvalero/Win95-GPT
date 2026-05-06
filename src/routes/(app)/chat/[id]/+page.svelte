@@ -370,7 +370,7 @@
 				aria-pressed={useWebSearch}
 				title="Activa o desactiva la búsqueda online"
 			>
-				Búsqueda online: {useWebSearch ? 'ON' : 'OFF'}
+				Web: {useWebSearch ? 'ON' : 'OFF'}
 			</button>
 		</div>
 		<div class="field-row model-row">
@@ -417,7 +417,7 @@
 	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 	.model-row { grid-column: 1 / -1; align-items: center; }
 	.web-toggle {
-		min-width: 170px;
+		min-width: 120px;
 		font-weight: 700;
 	}
 	.web-toggle.active {
@@ -441,4 +441,19 @@
 	:global(.messages code) { font-family: Consolas, 'Courier New', monospace; }
 	:global(.messages p) { margin: 0.35rem 0; }
 	textarea { width: 100%; min-height: 68px; resize: vertical; }
+	@media (max-width: 900px) {
+		.composer {
+			grid-template-columns: 1fr;
+			align-items: stretch;
+		}
+		.model-row {
+			gap: 4px;
+			flex-wrap: wrap;
+		}
+		.web-toggle {
+			min-width: 92px;
+			padding-inline: 6px;
+			font-size: 11px;
+		}
+	}
 </style>

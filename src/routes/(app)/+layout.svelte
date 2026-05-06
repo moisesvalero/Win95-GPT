@@ -268,8 +268,8 @@
 <style>
 	.desktop {
 		position: relative;
-		padding: 8px 8px 42px;
-		min-height: 100vh;
+		padding: 8px 8px calc(42px + env(safe-area-inset-bottom, 0px));
+		min-height: 100dvh;
 	}
 	.desktop-icons {
 		position: absolute;
@@ -326,8 +326,10 @@
 	.conv-list { height: 60vh; overflow-y: auto; margin: 0.5rem 0; }
 	.content { min-width: 0; }
 	.taskbar {
-		position: fixed; left: 0; right: 0; bottom: 0; height: 34px; display: grid;
-		grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 4px 8px;
+		position: fixed; left: 0; right: 0; bottom: 0; display: grid;
+		grid-template-columns: auto 1fr auto; align-items: center; gap: 6px;
+		padding: 3px 8px calc(3px + env(safe-area-inset-bottom, 0px)) 8px;
+		min-height: 32px;
 		background: silver; border-top: 2px solid #fff;
 		box-shadow: inset 0 1px #dfdfdf;
 		z-index: 50;
@@ -382,8 +384,8 @@
 		border: 2px inset #c0c0c0;
 		background: #dfdfdf;
 	}
-	.clock { border: 2px inset #c0c0c0; padding: 2px 8px; min-width: 64px; text-align: center; }
-	.start-menu { position: absolute; bottom: 38px; left: 8px; z-index: 99; min-width: 220px; }
+	.clock { border: 2px inset #c0c0c0; padding: 2px 6px; min-width: 58px; text-align: center; }
+	.start-menu { position: absolute; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); left: 8px; z-index: 99; min-width: 220px; }
 	.menu-body { display: grid; gap: 8px; }
 	.menu-body button { text-align: left; text-decoration: none; color: #000; }
 	.start-link {
@@ -443,6 +445,29 @@
 	@media (max-width: 900px) {
 		.sidebar-toggle { display: inline-block; }
 		.body { grid-template-columns: 1fr; }
+		.taskbar {
+			gap: 4px;
+			padding: 2px 6px calc(2px + env(safe-area-inset-bottom, 0px)) 6px;
+			min-height: 30px;
+		}
+		.start-btn {
+			font-size: 11px;
+			padding-inline: 6px;
+			gap: 4px;
+		}
+		.task-tabs {
+			gap: 3px;
+		}
+		.task-tab {
+			padding: 1px 6px;
+			min-width: 88px;
+			max-width: 128px;
+			font-size: 11px;
+		}
+		.clock {
+			font-size: 11px;
+			min-width: 52px;
+		}
 		.sidebar {
 			display: none;
 			position: absolute;
@@ -457,5 +482,9 @@
 		.sidebar.open { display: block; }
 		.chat-item { align-items: flex-start; }
 		.chat-actions { flex-wrap: wrap; }
+	}
+	@media (max-width: 520px) {
+		.clock { display: none; }
+		.taskbar { grid-template-columns: auto 1fr; }
 	}
 </style>
