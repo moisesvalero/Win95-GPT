@@ -33,34 +33,145 @@ const fetchWithTimeout = async (url: string, timeoutMs = 8000) => {
 	}
 };
 
+const fetchJsonWithTimeout = async <T>(url: string, timeoutMs = 8000): Promise<T | null> => {
+	try {
+		const res = await fetchWithTimeout(url, timeoutMs);
+		if (!res.ok) return null;
+		return (await res.json()) as T;
+	} catch {
+		return null;
+	}
+};
+
+const decodeHtml = (s: string) =>
+	s
+		.replace(/<[^>]+>/g, '')
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'")
+		.replace(/&lt;/g, '<')
+		.replace(/&gt;/g, '>')
+		.trim();
+
+const normalizeDuckDuckGoUrl = (rawHref: string): string | null => {
+	if (!rawHref) return null;
+	try {
+		const decoded = decodeURIComponent(rawHref);
+		if (decoded.startsWith('http://') || decoded.startsWith('https://')) return decoded;
+		if (decoded.startsWith('//')) return `https:${decoded}`;
+
+		// DuckDuckGo redirect format: /l/?uddg=<encodedUrl>
+		if (decoded.startsWith('/l/?')) {
+			const u = new URL(`https://duckduckgo.com${decoded}`);
+			const uddg = u.searchParams.get('uddg');
+			if (uddg) {
+				const target = decodeURIComponent(uddg);
+				if (target.startsWith('http://') || target.startsWith('https://')) return target;
+			}
+		}
+
+		if (decoded.startsWith('/')) return null;
+	} catch {
+		return null;
+	}
+	return null;
+};
+
+const extractSearchResults = (html: string): Array<{ title: string; url: string }> => {
+	const results: Array<{ title: string; url: string }> = [];
+
+	// Main DDG HTML parser
+	const primary = [...html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+	for (const match of primary) {
+		const url = normalizeDuckDuckGoUrl(match[1]);
+		const title = decodeHtml(match[2]);
+		if (!url || !title) continue;
+		results.push({ title, url });
+		if (results.length >= 8) return results;
+	}
+
+	// Fallback parser for Lite/alternative markup
+	const fallback = [...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+	for (const match of fallback) {
+		if (results.length >= 8) break;
+		const url = normalizeDuckDuckGoUrl(match[1]);
+		const title = decodeHtml(match[2]);
+		if (!url || !title) continue;
+		if (results.some((r) => r.url === url)) continue;
+		// Skip navigation/noise links
+		if (/duckduckgo\.com\/(html|lite|about|privacy|settings)/i.test(url)) continue;
+		results.push({ title, url });
+	}
+
+	return results;
+};
+
 const fetchWebContext = async (query: string): Promise<string | null> => {
 	try {
-		const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-		const searchRes = await fetchWithTimeout(searchUrl, 10000);
-		if (!searchRes.ok) return null;
-		const html = await searchRes.text();
-
-		const matches = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].slice(
-			0,
-			5
-		);
-		if (!matches.length) return null;
-
-		const decode = (s: string) =>
-			s
-				.replace(/<[^>]+>/g, '')
-				.replace(/&amp;/g, '&')
-				.replace(/&quot;/g, '"')
-				.replace(/&#39;/g, "'")
-				.replace(/&lt;/g, '<')
-				.replace(/&gt;/g, '>');
-
 		const sources: Array<{ title: string; url: string; snippet: string }> = [];
-		for (const match of matches) {
-			const rawUrl = match[1];
-			const title = decode(match[2]).trim();
-			const url = rawUrl.startsWith('http') ? rawUrl : '';
-			if (!url) continue;
+
+		// 1) DuckDuckGo Instant Answer API (gratis y estable)
+		type DdgTopic = { Text?: string; FirstURL?: string; Topics?: DdgTopic[] };
+		type DdgInstant = {
+			AbstractText?: string;
+			AbstractURL?: string;
+			Heading?: string;
+			RelatedTopics?: DdgTopic[];
+		};
+		const instantUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+		const instant = await fetchJsonWithTimeout<DdgInstant>(instantUrl, 9000);
+		if (instant) {
+			if (instant.AbstractText?.trim() && instant.AbstractURL?.trim()) {
+				sources.push({
+					title: instant.Heading?.trim() || 'DuckDuckGo Instant Answer',
+					url: instant.AbstractURL.trim(),
+					snippet: instant.AbstractText.trim().slice(0, 450)
+				});
+			}
+
+			const flattenTopics = (topics: DdgTopic[] = []): DdgTopic[] => {
+				const flat: DdgTopic[] = [];
+				for (const topic of topics) {
+					if (topic.Topics?.length) flat.push(...flattenTopics(topic.Topics));
+					else flat.push(topic);
+				}
+				return flat;
+			};
+
+			const related = flattenTopics(instant.RelatedTopics ?? [])
+				.filter((topic) => topic.Text && topic.FirstURL)
+				.slice(0, 4);
+
+			for (const topic of related) {
+				sources.push({
+					title: 'DuckDuckGo Related',
+					url: topic.FirstURL as string,
+					snippet: (topic.Text as string).slice(0, 450)
+				});
+			}
+		}
+
+		// 2) DuckDuckGo HTML/Lite scraping (fallback adicional)
+		const candidateUrls = [
+			`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+			`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`
+		];
+
+		let extracted: Array<{ title: string; url: string }> = [];
+		for (const searchUrl of candidateUrls) {
+			try {
+				const searchRes = await fetchWithTimeout(searchUrl, 10000);
+				if (!searchRes.ok) continue;
+				const html = await searchRes.text();
+				extracted = extractSearchResults(html);
+				if (extracted.length) break;
+			} catch {
+				// try next provider
+			}
+		}
+		for (const entry of extracted.slice(0, 5)) {
+			const { title, url } = entry;
+			if (sources.some((s) => s.url === url)) continue;
 
 			let snippet = '';
 			try {
@@ -75,6 +186,24 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 			}
 
 			sources.push({ title, url, snippet });
+		}
+
+		// 3) Wikipedia API (gratis) como último fallback general
+		if (!sources.length) {
+			type WikiSearchItem = { title: string; snippet: string; pageid: number };
+			type WikiSearchResponse = {
+				query?: { search?: WikiSearchItem[] };
+			};
+			const wikiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&utf8=1&origin=*`;
+			const wiki = await fetchJsonWithTimeout<WikiSearchResponse>(wikiUrl, 9000);
+			const wikiResults = wiki?.query?.search?.slice(0, 5) ?? [];
+			for (const item of wikiResults) {
+				sources.push({
+					title: `Wikipedia: ${item.title}`,
+					url: `https://es.wikipedia.org/?curid=${item.pageid}`,
+					snippet: decodeHtml(item.snippet).slice(0, 450)
+				});
+			}
 		}
 
 		if (!sources.length) return null;
@@ -175,7 +304,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				{
 					role: 'system',
 					content:
-						'Eres un asistente útil. Responde en el mismo idioma en que te escriban. Si la búsqueda web está activa, usa siempre el contexto web recibido y cita las fuentes como [1], [2], etc cuando afirmes datos de actualidad.'
+						'Eres un asistente útil. Responde en el mismo idioma en que te escriban. Si la búsqueda web está activa, usa siempre el contexto web recibido y cita las fuentes como [1], [2], etc cuando afirmes datos de actualidad. Nunca digas que no puedes buscar en internet si has recibido contexto web.'
 				},
 				...(webStatusNote ? [{ role: 'system' as const, content: webStatusNote }] : []),
 				...(webContext ? [{ role: 'system' as const, content: webContext }] : []),
