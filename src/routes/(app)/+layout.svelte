@@ -230,13 +230,12 @@
 				<div class="start-section-label">Programs</div>
 				{#each projects as project (project.url)}
 					{@const icons = faviconChainFor(project.url)}
-					<button
-						type="button"
+					<a
+						href={project.url}
+						target="_blank"
+						rel="noopener noreferrer"
 						class="start-link"
-						onclick={() => {
-							startOpen = false;
-							window.open(project.url, '_blank', 'noopener,noreferrer');
-						}}
+						onclick={() => (startOpen = false)}
 					>
 						<img
 							src={icons.primary}
@@ -255,7 +254,7 @@
 							}}
 						/>
 						{project.name}
-					</button>
+					</a>
 				{/each}
 				<div class="start-section-label">Web Projects</div>
 				<hr />
@@ -387,7 +386,7 @@
 	.clock { border: 2px inset #c0c0c0; padding: 2px 6px; min-width: 58px; text-align: center; }
 	.start-menu { position: absolute; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); left: 8px; z-index: 99; min-width: 220px; }
 	.menu-body { display: grid; gap: 8px; }
-	.menu-body button { text-align: left; text-decoration: none; color: #000; }
+	.menu-body button, .menu-body a { text-align: left; text-decoration: none; color: #000; }
 	.start-link {
 		display: inline-flex;
 		align-items: center;
