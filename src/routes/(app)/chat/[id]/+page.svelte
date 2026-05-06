@@ -20,6 +20,8 @@
 	let messages = $state([] as Message[]);
 	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
 	let useWebSearch = $state(true);
+	let pendingExportFormat = $state<null | 'txt' | 'md' | 'json' | 'pdf'>(null);
+	let messageExports = $state<Record<string, { format: 'txt' | 'md' | 'json' | 'pdf' }>>({});
 	let attachedImageDataUrl = $state('');
 	let attachedImageName = $state('');
 	let prompt = $state('');
@@ -138,6 +140,22 @@
 		downloadBlob('respuesta.pdf', new Blob([pdfByteArray], { type: 'application/pdf' }));
 	};
 
+	const detectRequestedExport = (text: string): null | 'txt' | 'md' | 'json' | 'pdf' => {
+		const q = text.toLowerCase();
+		if (/\bpdf\b/.test(q)) return 'pdf';
+		if (/\bjson\b/.test(q)) return 'json';
+		if (/\bmarkdown\b|\bmd\b/.test(q)) return 'md';
+		if (/\btxt\b|\btexto\b/.test(q)) return 'txt';
+		return null;
+	};
+
+	const exportLabel = (format: 'txt' | 'md' | 'json' | 'pdf') => {
+		if (format === 'pdf') return 'Descargar PDF';
+		if (format === 'json') return 'Descargar JSON';
+		if (format === 'md') return 'Descargar MD';
+		return 'Descargar TXT';
+	};
+
 	const onFileChange = async (event: Event) => {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
@@ -176,6 +194,7 @@
 
 		isStreaming = true;
 		prompt = '';
+		pendingExportFormat = detectRequestedExport(content);
 
 		const userMessage = {
 			id: crypto.randomUUID(),
@@ -245,6 +264,13 @@
 		}
 
 		await saveMessage('assistant', finalText);
+		if (pendingExportFormat) {
+			messageExports = {
+				...messageExports,
+				[assistantMessage.id]: { format: pendingExportFormat }
+			};
+		}
+		pendingExportFormat = null;
 		await updateTitleIfNeeded(content);
 		isStreaming = false;
 	};
@@ -273,20 +299,17 @@
 				<div class="bubble">
 					{#if message.role === 'assistant'}
 						<div use:renderMarkdown={message.content}></div>
-						<div class="assistant-actions">
-							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'txt')}>
-								Guardar TXT
-							</button>
-							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'md')}>
-								Guardar MD
-							</button>
-							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'json')}>
-								Guardar JSON
-							</button>
-							<button class="tiny-btn" type="button" onclick={() => exportMessage(message.content, 'pdf')}>
-								Guardar PDF
-							</button>
-						</div>
+						{#if messageExports[message.id]}
+							<div class="assistant-actions">
+								<button
+									class="tiny-btn"
+									type="button"
+									onclick={() => exportMessage(message.content, messageExports[message.id].format)}
+								>
+									{exportLabel(messageExports[message.id].format)}
+								</button>
+							</div>
+						{/if}
 					{:else}
 						{message.content}
 					{/if}
@@ -300,8 +323,6 @@
 			<label for="model">Modelo:</label>
 			<select id="model" bind:value={selectedModel} disabled={isStreaming}>
 				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
-				<option value="gpt-5-mini">gpt-5-mini</option>
-				<option value="gpt-4.1-mini">gpt-4.1-mini</option>
 				<option value="gpt-4o-mini">gpt-4o-mini (visión)</option>
 			</select>
 			<label for="web-search">Buscar online</label>

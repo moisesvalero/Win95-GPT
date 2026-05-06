@@ -22,13 +22,16 @@
 						<p class="error">{form.error}</p>
 					{/if}
 
-					<label for="email">Email</label>
+					<label for="email">Email (admin)</label>
 					<input id="email" name="email" type="email" value={form?.email ?? ''} required />
 
 					<label for="password">Contraseña</label>
 					<input id="password" name="password" type="password" required />
 
-					<button type="submit">Entrar</button>
+					<div class="field-row">
+						<button type="submit">Entrar como Admin</button>
+						<button type="submit" formaction="?/guest">Entrar como Invitado</button>
+					</div>
 				</fieldset>
 			</form>
 		</div>

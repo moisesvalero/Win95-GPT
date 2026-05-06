@@ -1,6 +1,7 @@
 import type { Role } from '$lib/types';
 import { openai } from '$lib/openai';
 import { env as publicEnv } from '$env/dynamic/public';
+import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
 interface ChatInputMessage {
@@ -8,7 +9,13 @@ interface ChatInputMessage {
 	content: string;
 }
 
-const ALLOWED_MINI_MODELS = new Set(['gpt-5.4-mini', 'gpt-5-mini', 'gpt-4.1-mini', 'gpt-4o-mini']);
+const ALLOWED_MINI_MODELS = new Set(['gpt-5.4-mini', 'gpt-4o-mini']);
+
+const getDemoEmails = () =>
+	(privateEnv.DEMO_EMAILS ?? '')
+		.split(',')
+		.map((email) => email.trim().toLowerCase())
+		.filter(Boolean);
 
 const fetchWebContext = async (query: string): Promise<string | null> => {
 	try {
@@ -39,7 +46,16 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 		if (lines.length === 0) return null;
 		return `Contexto web (DuckDuckGo, puede ser parcial):\n${lines.join('\n')}`;
 	} catch {
-		return null;
+		try {
+			const liteUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
+			const html = await (await fetch(liteUrl)).text();
+			const matches = [...html.matchAll(/<a rel="nofollow" href="([^"]+)">([^<]+)<\/a>/g)].slice(0, 6);
+			if (!matches.length) return null;
+			const lines = matches.map((m) => `- ${m[2]} (${m[1]})`);
+			return `Contexto web (DuckDuckGo Lite):\n${lines.join('\n')}`;
+		} catch {
+			return null;
+		}
 	}
 };
 
@@ -49,8 +65,56 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	try {
 		const { messages, conversationId, model, useWeb, imageDataUrl } = await request.json();
+		const userEmail = (session.user.email ?? '').toLowerCase();
+		const demoEmails = getDemoEmails();
+		const isAnonymousGuest = !session.user.email;
+		const isDemoUser = demoEmails.includes(userEmail) || isAnonymousGuest;
+
+		if (isDemoUser) {
+			const maxPromptChars = Number(
+				isAnonymousGuest ? privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700' : privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200'
+			);
+			const maxResponsesPerDay = Number(
+				isAnonymousGuest
+					? privateEnv.GUEST_MAX_RESPONSES_PER_DAY ?? '8'
+					: privateEnv.DEMO_MAX_RESPONSES_PER_DAY ?? '20'
+			);
+			const today = new Date();
+			today.setHours(0, 0, 0, 0);
+			const todayIso = today.toISOString();
+
+			const latestUserPrompt = [...((messages as ChatInputMessage[]) ?? [])]
+				.reverse()
+				.find((message) => message.role === 'user')?.content;
+			if (latestUserPrompt && latestUserPrompt.length > maxPromptChars) {
+				return new Response(
+					`Cuenta demo: máximo ${maxPromptChars} caracteres por mensaje para controlar coste.`,
+					{ status: 429 }
+				);
+			}
+
+			const { count: responsesToday, error: usageError } = await locals.supabase
+				.from('messages')
+				.select('id, conversations!inner(user_id)', { count: 'exact', head: true })
+				.eq('role', 'assistant')
+				.eq('conversations.user_id', session.user.id)
+				.gte('created_at', todayIso);
+
+			if (!usageError && (responsesToday ?? 0) >= maxResponsesPerDay) {
+				return new Response(
+					`Cuenta demo: límite diario alcanzado (${maxResponsesPerDay} respuestas). Vuelve mañana.`,
+					{
+						status: 429
+					}
+				);
+			}
+		}
+
 		const requestedModel = (model as string | undefined) || publicEnv.PUBLIC_MODEL || 'gpt-5.4-mini';
-		const selectedModel = ALLOWED_MINI_MODELS.has(requestedModel) ? requestedModel : 'gpt-5.4-mini';
+		let selectedModel = ALLOWED_MINI_MODELS.has(requestedModel) ? requestedModel : 'gpt-5.4-mini';
+		if (imageDataUrl && selectedModel !== 'gpt-4o-mini') {
+			selectedModel = 'gpt-4o-mini';
+		}
 		const chatMessages = (messages as ChatInputMessage[]) ?? [];
 		const lastUserMessage = [...chatMessages].reverse().find((message) => message.role === 'user');
 		const webContext =
@@ -102,8 +166,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				'x-conversation-id': conversationId ?? ''
 			}
 		});
-	} catch {
-		return new Response('No se pudo completar la búsqueda online o generar la respuesta.', { status: 500 });
+	} catch (error) {
+		const message = error instanceof Error ? error.message : 'Error interno';
+		return new Response(`No se pudo completar la búsqueda online o generar la respuesta: ${message}`, {
+			status: 500
+		});
 	}
 };
 

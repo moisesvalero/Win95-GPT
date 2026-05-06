@@ -3,9 +3,11 @@
 	import type { Conversation } from '$lib/types';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/stores';
 
 	let { data, children } = $props();
 	let conversations = $derived((data.conversations ?? []) as Conversation[]);
+	let taskTabs = $derived(conversations.slice(0, 8));
 	let startOpen = $state(false);
 	let sidebarOpen = $state(false);
 	let startMenuRef: HTMLElement | null = null;
@@ -66,6 +68,19 @@
 
 		await invalidateAll();
 	};
+
+	const projects = [
+		{ name: 'NovaKit', url: 'https://novakit.moisesvalero.es/' },
+		{ name: 'GaleriaNova', url: 'https://galerianova.es/' },
+		{ name: 'GaleriaNova Legacy', url: 'https://galerianova.moisesvalero.es/' },
+		{ name: 'V-Shield', url: 'https://v-shield.moisesvalero.es/' },
+		{ name: 'ScanIt', url: 'https://scanit-rho.vercel.app/' },
+		{ name: 'CV Generator', url: 'https://moisesverse3.gumroad.com/l/pro-cv-generator-sveltekit' },
+		{ name: 'moisesvalero.es', url: 'https://moisesvalero.es/' },
+		{ name: 'Diseño Web', url: 'https://moisesvalero.es/diseno-web' }
+	];
+
+	const faviconFor = (url: string) => `https://www.google.com/s2/favicons?domain=${encodeURIComponent(url)}&sz=16`;
 </script>
 
 <svelte:document onclick={closeIfOutside} />
@@ -134,15 +149,44 @@
 </div>
 
 <footer class="taskbar" bind:this={startMenuRef}>
-	<button class="start-btn" onclick={() => (startOpen = !startOpen)}>Inicio 🪟</button>
-	<div class="active-task">📄 Chat activo</div>
+	<button class="start-btn" onclick={() => (startOpen = !startOpen)}>
+		<span class="start-logo" aria-hidden="true">
+			<span class="sq red"></span><span class="sq green"></span><span class="sq blue"></span><span class="sq yellow"></span>
+		</span>
+		Inicio
+	</button>
+	<div class="task-tabs">
+		{#each taskTabs as tab (tab.id)}
+			<button
+				class="task-tab"
+				class:active={$page.url.pathname === `/chat/${tab.id}`}
+				onclick={() => window.location.assign(`/chat/${tab.id}`)}
+				title={tab.title}
+			>
+				📄 {tab.title}
+			</button>
+		{/each}
+	</div>
 	<div class="clock">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
 
 	{#if startOpen}
 		<div class="window start-menu">
 			<div class="window-body menu-body">
-				<a href="https://moisesvalero.es" target="_blank" rel="noreferrer">🌐 Mi portfolio</a>
-				<a href="https://galerianova.es" target="_blank" rel="noreferrer">🛍️ Galería Nova</a>
+				<div class="start-section-label">Programs</div>
+				{#each projects as project (project.url)}
+					<button
+						type="button"
+						class="start-link"
+						onclick={() => {
+							startOpen = false;
+							window.open(project.url, '_blank', 'noopener,noreferrer');
+						}}
+					>
+						<img src={faviconFor(project.url)} alt="" width="16" height="16" />
+						{project.name}
+					</button>
+				{/each}
+				<div class="start-section-label">Web Projects</div>
 				<hr />
 				<button onclick={logout}>🔌 Cerrar sesión</button>
 			</div>
@@ -160,15 +204,83 @@
 	.content { min-width: 0; }
 	.taskbar {
 		position: fixed; left: 0; right: 0; bottom: 0; height: 34px; display: grid;
-		grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 4px 8px;
+		grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 4px 8px;
 		background: silver; border-top: 2px solid #fff;
 		box-shadow: inset 0 1px #dfdfdf;
 	}
-	.active-task { border: 2px inset #c0c0c0; padding: 2px 8px; }
+	.start-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-weight: 700;
+		padding-inline: 8px;
+	}
+	.start-logo {
+		display: inline-grid;
+		grid-template-columns: repeat(2, 6px);
+		grid-template-rows: repeat(2, 6px);
+		gap: 1px;
+		width: 13px;
+		height: 13px;
+	}
+	.sq { display: block; width: 6px; height: 6px; }
+	.red { background: #ff0000; }
+	.green { background: #00a000; }
+	.blue { background: #0000ff; }
+	.yellow { background: #ffcc00; }
+	.task-tabs {
+		display: flex;
+		gap: 4px;
+		overflow-x: auto;
+		white-space: nowrap;
+		padding-bottom: 1px;
+	}
+	.task-tab {
+		border: 2px outset #c0c0c0;
+		background: silver;
+		padding: 2px 8px;
+		min-width: 120px;
+		max-width: 220px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		text-align: left;
+	}
+	.task-tab.active {
+		border: 2px inset #c0c0c0;
+		background: #dfdfdf;
+	}
 	.clock { border: 2px inset #c0c0c0; padding: 2px 8px; min-width: 64px; text-align: center; }
 	.start-menu { position: absolute; bottom: 38px; left: 8px; z-index: 99; min-width: 220px; }
 	.menu-body { display: grid; gap: 8px; }
-	.menu-body a, .menu-body button { text-align: left; text-decoration: none; color: #000; }
+	.menu-body button { text-align: left; text-decoration: none; color: #000; }
+	.start-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		width: 100%;
+		border: 0;
+		background: transparent;
+		padding: 4px 6px;
+	}
+	.start-link:hover,
+	.start-link:focus-visible {
+		background: #000080;
+		color: #fff;
+		outline: none;
+	}
+	.start-link:hover img,
+	.start-link:focus-visible img {
+		filter: saturate(1.2) brightness(1.1);
+	}
+	.start-section-label {
+		font-size: 11px;
+		font-weight: 700;
+		color: #404040;
+		text-transform: uppercase;
+		letter-spacing: 0.2px;
+		padding: 2px 4px;
+	}
 	.chat-link {
 		background: transparent;
 		border: 0;
