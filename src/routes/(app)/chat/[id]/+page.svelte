@@ -325,8 +325,17 @@
 				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
 				<option value="gpt-4o-mini">gpt-4o-mini (visión)</option>
 			</select>
-			<label for="web-search">Buscar online</label>
-			<input id="web-search" type="checkbox" bind:checked={useWebSearch} disabled={isStreaming} />
+			<button
+				type="button"
+				class="web-toggle"
+				class:active={useWebSearch}
+				disabled={isStreaming}
+				onclick={() => (useWebSearch = !useWebSearch)}
+				aria-pressed={useWebSearch}
+				title="Activa o desactiva la búsqueda online"
+			>
+				Búsqueda online: {useWebSearch ? 'ON' : 'OFF'}
+			</button>
 		</div>
 		<div class="field-row model-row">
 			<label for="img">Imagen:</label>
@@ -371,6 +380,14 @@
 	}
 	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 	.model-row { grid-column: 1 / -1; align-items: center; }
+	.web-toggle {
+		min-width: 170px;
+		font-weight: 700;
+	}
+	.web-toggle.active {
+		border-style: inset;
+		background: #dfdfdf;
+	}
 	.img-name {
 		display: inline-block;
 		max-width: 220px;

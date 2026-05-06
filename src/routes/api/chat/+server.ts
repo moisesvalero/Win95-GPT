@@ -10,6 +10,8 @@ interface ChatInputMessage {
 }
 
 const ALLOWED_MINI_MODELS = new Set(['gpt-5.4-mini', 'gpt-4o-mini']);
+const FORCE_WEB_QUERY_REGEX =
+	/\b(busca|buscar|búscame|investiga|internet|online|web|hoy|ayer|último|ultima|ultimo|actual|resultado|marcador|noticia|news)\b/i;
 
 const getDemoEmails = () =>
 	(privateEnv.DEMO_EMAILS ?? '')
@@ -38,6 +40,16 @@ const fetchJsonWithTimeout = async <T>(url: string, timeoutMs = 8000): Promise<T
 		const res = await fetchWithTimeout(url, timeoutMs);
 		if (!res.ok) return null;
 		return (await res.json()) as T;
+	} catch {
+		return null;
+	}
+};
+
+const fetchTextWithTimeout = async (url: string, timeoutMs = 8000): Promise<string | null> => {
+	try {
+		const res = await fetchWithTimeout(url, timeoutMs);
+		if (!res.ok) return null;
+		return await res.text();
 	} catch {
 		return null;
 	}
@@ -109,6 +121,26 @@ const extractSearchResults = (html: string): Array<{ title: string; url: string 
 const fetchWebContext = async (query: string): Promise<string | null> => {
 	try {
 		const sources: Array<{ title: string; url: string; snippet: string }> = [];
+
+		// 0) Google News RSS search (gratis, muy fiable para actualidad)
+		const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es&gl=ES&ceid=ES:es`;
+		const rssText = await fetchTextWithTimeout(rssUrl, 9000);
+		if (rssText) {
+			const items = [...rssText.matchAll(/<item>([\s\S]*?)<\/item>/gi)].slice(0, 6);
+			for (const itemMatch of items) {
+				const item = itemMatch[1];
+				const title = decodeHtml(item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? '');
+				const rawLink = decodeHtml(item.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? '');
+				const snippet = decodeHtml(item.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ?? '').slice(
+					0,
+					450
+				);
+				const url = rawLink.startsWith('http://') || rawLink.startsWith('https://') ? rawLink : '';
+				if (!title || !url) continue;
+				sources.push({ title, url, snippet });
+				if (sources.length >= 5) break;
+			}
+		}
 
 		// 1) DuckDuckGo Instant Answer API (gratis y estable)
 		type DdgTopic = { Text?: string; FirstURL?: string; Topics?: DdgTopic[] };
@@ -275,12 +307,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 		const chatMessages = (messages as ChatInputMessage[]) ?? [];
 		const lastUserMessage = [...chatMessages].reverse().find((message) => message.role === 'user');
-		const webContext =
-			useWeb && lastUserMessage?.content ? await fetchWebContext(lastUserMessage.content.slice(0, 600)) : null;
-		const webStatusNote =
-			useWeb && !webContext
-				? 'Búsqueda web activa, pero no se encontraron resultados útiles en esta consulta.'
-				: null;
+		const lastPrompt = lastUserMessage?.content ?? '';
+		const forcedByPrompt = FORCE_WEB_QUERY_REGEX.test(lastPrompt);
+		const shouldUseWeb = Boolean(useWeb) || forcedByPrompt;
+		const webContext = shouldUseWeb && lastPrompt ? await fetchWebContext(lastPrompt.slice(0, 600)) : null;
+		if (shouldUseWeb && !webContext) {
+			return new Response(
+				'La busqueda online esta activa pero las fuentes publicas no respondieron en este momento. Intenta de nuevo en unos segundos.',
+				{ status: 503 }
+			);
+		}
+		const webStatusNote = shouldUseWeb
+			? webContext
+				? 'Búsqueda web activa: tienes contexto online real en los mensajes de sistema. Debes usarlo y citar fuentes [1], [2], etc.'
+				: 'Búsqueda web activa, pero todas las fuentes gratuitas fallaron temporalmente. Indica este fallo técnico de forma breve; no digas que no tienes internet.'
+			: null;
 
 		const messagePayload: Array<{ role: Role; content: string | Array<any> }> = [...chatMessages];
 		if (imageDataUrl && messagePayload.length > 0) {
