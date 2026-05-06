@@ -18,6 +18,7 @@
 	let initialMessages = $derived((data.messages ?? []) as Message[]);
 	let messages = $state([] as Message[]);
 	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
+	let useWebSearch = $state(true);
 	let prompt = $state('');
 	let isStreaming = $state(false);
 	let scroller: HTMLDivElement | null = null;
@@ -91,6 +92,7 @@
 			body: JSON.stringify({
 				conversationId,
 				model: selectedModel,
+				useWeb: useWebSearch,
 				messages: messages.map((m) => ({ role: m.role, content: m.content }))
 			})
 		});
@@ -161,6 +163,8 @@
 				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
 				<option value="gpt-4.1-mini">gpt-4.1-mini</option>
 			</select>
+			<label for="web-search">Buscar online</label>
+			<input id="web-search" type="checkbox" bind:checked={useWebSearch} disabled={isStreaming} />
 		</div>
 		<textarea
 			rows="3"
