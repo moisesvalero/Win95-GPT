@@ -17,45 +17,74 @@ const getDemoEmails = () =>
 		.map((email) => email.trim().toLowerCase())
 		.filter(Boolean);
 
+const fetchWithTimeout = async (url: string, timeoutMs = 8000) => {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), timeoutMs);
+	try {
+		return await fetch(url, {
+			signal: controller.signal,
+			headers: {
+				'user-agent':
+					'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147 Safari/537.36'
+			}
+		});
+	} finally {
+		clearTimeout(timer);
+	}
+};
+
 const fetchWebContext = async (query: string): Promise<string | null> => {
 	try {
-		const endpoint = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
-		const response = await fetch(endpoint);
-		if (!response.ok) return null;
-		const data = (await response.json()) as {
-			AbstractText?: string;
-			AbstractURL?: string;
-			Heading?: string;
-			RelatedTopics?: Array<{ Text?: string; FirstURL?: string; Topics?: Array<{ Text?: string; FirstURL?: string }> }>;
-		};
+		const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+		const searchRes = await fetchWithTimeout(searchUrl, 10000);
+		if (!searchRes.ok) return null;
+		const html = await searchRes.text();
 
-		const lines: string[] = [];
-		if (data.Heading && data.AbstractText) {
-			lines.push(`- ${data.Heading}: ${data.AbstractText}${data.AbstractURL ? ` (${data.AbstractURL})` : ''}`);
+		const matches = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)].slice(
+			0,
+			5
+		);
+		if (!matches.length) return null;
+
+		const decode = (s: string) =>
+			s
+				.replace(/<[^>]+>/g, '')
+				.replace(/&amp;/g, '&')
+				.replace(/&quot;/g, '"')
+				.replace(/&#39;/g, "'")
+				.replace(/&lt;/g, '<')
+				.replace(/&gt;/g, '>');
+
+		const sources: Array<{ title: string; url: string; snippet: string }> = [];
+		for (const match of matches) {
+			const rawUrl = match[1];
+			const title = decode(match[2]).trim();
+			const url = rawUrl.startsWith('http') ? rawUrl : '';
+			if (!url) continue;
+
+			let snippet = '';
+			try {
+				const proxied = `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`;
+				const pageRes = await fetchWithTimeout(proxied, 9000);
+				if (pageRes.ok) {
+					const text = (await pageRes.text()).replace(/\s+/g, ' ').trim();
+					snippet = text.slice(0, 450);
+				}
+			} catch {
+				snippet = '';
+			}
+
+			sources.push({ title, url, snippet });
 		}
 
-		const related = (data.RelatedTopics ?? [])
-			.flatMap((topic) => ('Topics' in topic && topic.Topics ? topic.Topics : [topic]))
-			.filter((topic) => topic.Text)
-			.slice(0, 6);
-
-		for (const topic of related) {
-			lines.push(`- ${topic.Text}${topic.FirstURL ? ` (${topic.FirstURL})` : ''}`);
-		}
-
-		if (lines.length === 0) return null;
-		return `Contexto web (DuckDuckGo, puede ser parcial):\n${lines.join('\n')}`;
+		if (!sources.length) return null;
+		const lines = sources.map(
+			(source, index) =>
+				`[${index + 1}] ${source.title}\nURL: ${source.url}\nResumen: ${source.snippet || 'Sin resumen disponible'}`
+		);
+		return `Contexto web en tiempo real para "${query}":\n\n${lines.join('\n\n')}`;
 	} catch {
-		try {
-			const liteUrl = `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`;
-			const html = await (await fetch(liteUrl)).text();
-			const matches = [...html.matchAll(/<a rel="nofollow" href="([^"]+)">([^<]+)<\/a>/g)].slice(0, 6);
-			if (!matches.length) return null;
-			const lines = matches.map((m) => `- ${m[2]} (${m[1]})`);
-			return `Contexto web (DuckDuckGo Lite):\n${lines.join('\n')}`;
-		} catch {
-			return null;
-		}
+		return null;
 	}
 };
 
@@ -119,6 +148,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const lastUserMessage = [...chatMessages].reverse().find((message) => message.role === 'user');
 		const webContext =
 			useWeb && lastUserMessage?.content ? await fetchWebContext(lastUserMessage.content.slice(0, 600)) : null;
+		const webStatusNote =
+			useWeb && !webContext
+				? 'Búsqueda web activa, pero no se encontraron resultados útiles en esta consulta.'
+				: null;
 
 		const messagePayload: Array<{ role: Role; content: string | Array<any> }> = [...chatMessages];
 		if (imageDataUrl && messagePayload.length > 0) {
@@ -142,8 +175,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				{
 					role: 'system',
 					content:
-						'Eres un asistente útil. Responde en el mismo idioma en que te escriban. Si llega contexto web, úsalo y reconoce cuando sea incompleto.'
+						'Eres un asistente útil. Responde en el mismo idioma en que te escriban. Si la búsqueda web está activa, usa siempre el contexto web recibido y cita las fuentes como [1], [2], etc cuando afirmes datos de actualidad.'
 				},
+				...(webStatusNote ? [{ role: 'system' as const, content: webStatusNote }] : []),
 				...(webContext ? [{ role: 'system' as const, content: webContext }] : []),
 				...messagePayload
 			] as any)
