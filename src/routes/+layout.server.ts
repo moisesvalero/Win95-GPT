@@ -8,5 +8,5 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
 		throw redirect(303, '/login');
 	}
 
-	return { session };
+	return { session, origin: url.origin };
 };

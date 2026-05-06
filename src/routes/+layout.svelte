@@ -1,7 +1,9 @@
 <script lang="ts">
 	import '../app.css';
 	import { browser } from '$app/environment';
-	let { children } = $props();
+	let { data, children } = $props();
+	const ogImage = $derived(`${data.origin}/og/share-preview.png`);
+	const ogUrl = $derived(data.origin);
 
 	type DeferredPrompt = Event & {
 		prompt: () => Promise<void>;
@@ -47,6 +49,29 @@
 		});
 	}
 </script>
+
+<svelte:head>
+	<title>Win95 GPT</title>
+	<meta name="description" content="Clon estilo Windows 95/98 con chat IA, búsqueda online y modo invitado." />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Win95 GPT" />
+	<meta
+		property="og:description"
+		content="Clon estilo Windows 95/98 con chat IA, búsqueda online y modo invitado."
+	/>
+	<meta property="og:url" content={ogUrl} />
+	<meta property="og:image" content={ogImage} />
+	<meta property="og:image:width" content="1024" />
+	<meta property="og:image:height" content="576" />
+	<meta property="og:image:alt" content="Win95 GPT preview" />
+	<meta property="twitter:card" content="summary_large_image" />
+	<meta property="twitter:title" content="Win95 GPT" />
+	<meta
+		property="twitter:description"
+		content="Clon estilo Windows 95/98 con chat IA, búsqueda online y modo invitado."
+	/>
+	<meta property="twitter:image" content={ogImage} />
+</svelte:head>
 
 {@render children()}
 
