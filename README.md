@@ -1,29 +1,51 @@
-# Win95 GPT (SvelteKit 5 + Supabase)
+# Win95 GPT
 
-Chat privado estilo Windows 95/98 con SvelteKit 5 (Runes), Supabase Auth + DB y streaming con OpenAI.
+Clon de chat estilo Windows 95/98 con SvelteKit + Supabase + OpenAI.
 
-## Requisitos
+![Preview Win95 GPT](./docs/preview-win95-gpt.png)
+
+## Qué incluye
+
+- UI Win95 (escritorio, ventana, barra de tareas, menú inicio)
+- Chat persistente en Supabase
+- Streaming de respuestas
+- Búsqueda online
+- Modo admin + modo invitado con límites
+- PWA instalable (móvil/desktop)
+
+## 1) Requisitos
 
 - Node.js 18+
 - Proyecto Supabase
-- Clave OpenAI
+- API Key de OpenAI
 
-## Variables de entorno
+## 2) Variables de entorno
 
-Copia `.env.example` a `.env` y configura:
+Copia `.env.example` a `.env` y rellena valores reales:
 
-- `PUBLIC_SUPABASE_URL`
-- `PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
-- `ALLOWED_EMAIL` (email único permitido)
+```env
+PUBLIC_SUPABASE_URL=
+PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
+ALLOWED_EMAIL=
+ALLOW_GUEST_LOGIN=true
+GUEST_EMAIL=
+GUEST_PASSWORD=
+DEMO_EMAILS=
+DEMO_MAX_RESPONSES_PER_DAY=20
+DEMO_MAX_PROMPT_CHARS=1200
+GUEST_MAX_RESPONSES_PER_DAY=8
+GUEST_MAX_PROMPT_CHARS=700
+PUBLIC_MODEL=gpt-5.4-mini
+```
 
-## SQL en Supabase
+## 3) SQL de Supabase (tablas base)
 
-Ejecuta este esquema en el SQL Editor:
+Ejecuta esto en SQL Editor:
 
 ```sql
-create table conversations (
+create table if not exists conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users not null,
   title text not null default 'Nueva conversación',
@@ -31,7 +53,7 @@ create table conversations (
   updated_at timestamptz default now()
 );
 
-create table messages (
+create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid references conversations(id) on delete cascade not null,
   role text check (role in ('user', 'assistant', 'system')) not null,
@@ -41,29 +63,24 @@ create table messages (
 
 alter table conversations enable row level security;
 alter table messages enable row level security;
-
-create policy "own conversations" on conversations
-  for all using (auth.uid() = user_id);
-
-create policy "own messages" on messages
-  for all using (
-    conversation_id in (
-      select id from conversations where user_id = auth.uid()
-    )
-  );
-
-create index on messages(conversation_id, created_at);
 ```
 
-## Desarrollo
+## 4) Ejecutar en local
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Flujo principal
+Abre `http://localhost:5173`.
 
-- Auth privada en `hooks.server.ts` (solo `ALLOWED_EMAIL`).
-- Sidebar + taskbar Win95 en `src/routes/(app)/+layout.svelte`.
-- Chat persistente y streaming en `src/routes/(app)/chat/[id]/+page.svelte` + `src/routes/api/chat/+server.ts`.
+## 5) Deploy en Vercel
+
+1. Importa el repo en Vercel  
+2. Añade las variables de entorno en **Project Settings -> Environment Variables**  
+3. Redeploy  
+
+## 6) Login
+
+- **Admin**: email + password (usuario real de Supabase Auth)
+- **Invitado**: botón sin password (usa `GUEST_EMAIL/GUEST_PASSWORD` en backend)

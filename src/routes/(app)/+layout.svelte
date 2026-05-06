@@ -72,7 +72,7 @@
 		}
 
 		if (window.location.pathname.includes(`/chat/${conversationId}`)) {
-			await goto(resolve('/chat/new'));
+			await goto(resolve('/chat'));
 		}
 
 		await invalidateAll();
@@ -107,17 +107,6 @@
 		<button type="button" class="desktop-icon" onclick={restoreWindow}>
 			<span class="icon-emoji" aria-hidden="true">💬</span>
 			<span class="icon-label">Win95 GPT</span>
-		</button>
-		<button
-			type="button"
-			class="desktop-icon"
-			onclick={async () => {
-				restoreWindow();
-				await newChat();
-			}}
-		>
-			<span class="icon-emoji" aria-hidden="true">➕</span>
-			<span class="icon-label">Nuevo chat</span>
 		</button>
 	</div>
 	{#if windowVisible}
@@ -197,18 +186,20 @@
 		</span>
 		Inicio
 	</button>
-	<button class="task-tab restore-tab" class:active={windowVisible} onclick={restoreWindow}>💬 Win95 GPT</button>
-	<div class="task-tabs">
-		{#each taskTabs as tab (tab.id)}
-			<button
-				class="task-tab"
-				class:active={$page.url.pathname === `/chat/${tab.id}`}
-				onclick={() => window.location.assign(`/chat/${tab.id}`)}
-				title={tab.title}
-			>
-				📄 {tab.title}
-			</button>
-		{/each}
+	<div class="task-middle">
+		<button class="task-tab app-tab" class:active={windowVisible} onclick={restoreWindow}>💬 Win95 GPT</button>
+		<div class="task-tabs">
+			{#each taskTabs as tab (tab.id)}
+				<button
+					class="task-tab"
+					class:active={$page.url.pathname === `/chat/${tab.id}`}
+					onclick={() => window.location.assign(`/chat/${tab.id}`)}
+					title={tab.title}
+				>
+					📄 {tab.title}
+				</button>
+			{/each}
+		</div>
 	</div>
 	<div class="clock">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
 
@@ -222,7 +213,7 @@
 						class="start-link"
 						onclick={() => {
 							startOpen = false;
-							window.location.assign(project.url);
+							window.open(project.url, '_blank', 'noopener,noreferrer');
 						}}
 					>
 						<img src={faviconFor(project.url)} alt="" width="16" height="16" />
@@ -247,7 +238,7 @@
 		position: absolute;
 		top: 10px;
 		left: 10px;
-		z-index: 1;
+		z-index: 0;
 		display: grid;
 		grid-auto-rows: min-content;
 		gap: 8px;
@@ -279,7 +270,7 @@
 		line-height: 1.2;
 		text-align: center;
 	}
-	.main-window { min-height: calc(100vh - 58px); }
+	.main-window { min-height: calc(100vh - 58px); position: relative; z-index: 3; }
 	.main-window.maximized {
 		position: fixed;
 		top: 6px;
@@ -302,6 +293,13 @@
 		grid-template-columns: auto 1fr auto; align-items: center; gap: 6px; padding: 4px 8px;
 		background: silver; border-top: 2px solid #fff;
 		box-shadow: inset 0 1px #dfdfdf;
+		z-index: 50;
+	}
+	.task-middle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		min-width: 0;
 	}
 	.start-btn {
 		display: inline-flex;
@@ -329,6 +327,8 @@
 		overflow-x: auto;
 		white-space: nowrap;
 		padding-bottom: 1px;
+		min-width: 0;
+		flex: 1;
 	}
 	.task-tab {
 		border: 2px outset #c0c0c0;
@@ -345,9 +345,10 @@
 		border: 2px inset #c0c0c0;
 		background: #dfdfdf;
 	}
-	.restore-tab {
-		min-width: 120px;
-		max-width: 150px;
+	.app-tab {
+		min-width: 128px;
+		max-width: 170px;
+		flex-shrink: 0;
 	}
 	.clock { border: 2px inset #c0c0c0; padding: 2px 8px; min-width: 64px; text-align: center; }
 	.start-menu { position: absolute; bottom: 38px; left: 8px; z-index: 99; min-width: 220px; }
