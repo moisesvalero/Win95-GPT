@@ -201,6 +201,9 @@
 		};
 
 		attachedImageDataUrl = await shrinkImageDataUrl(originalDataUrl);
+		if (selectedModel !== 'gpt-4o-mini') {
+			selectedModel = 'gpt-4o-mini';
+		}
 	};
 
 	const saveMessage = async (role: Role, content: string) => {
