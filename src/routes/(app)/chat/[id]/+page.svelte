@@ -19,6 +19,8 @@
 	let messages = $state([] as Message[]);
 	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
 	let useWebSearch = $state(true);
+	let attachedImageDataUrl = $state('');
+	let attachedImageName = $state('');
 	let prompt = $state('');
 	let isStreaming = $state(false);
 	let scroller: HTMLDivElement | null = null;
@@ -42,6 +44,20 @@
 
 	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+	const onFileChange = async (event: Event) => {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		attachedImageName = file.name;
+		attachedImageDataUrl = await new Promise<string>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(String(reader.result ?? ''));
+			reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+			reader.readAsDataURL(file);
+		});
+	};
+
 	const saveMessage = async (role: Role, content: string) => {
 		await fetch(`/api/chat?id=${conversationId}&persist=1`, {
 			method: 'PUT',
@@ -62,7 +78,7 @@
 
 	const send = async () => {
 		const content = prompt.trim();
-		if (!content || isStreaming) return;
+		if ((!content && !attachedImageDataUrl) || isStreaming) return;
 
 		isStreaming = true;
 		prompt = '';
@@ -71,11 +87,11 @@
 			id: crypto.randomUUID(),
 			conversation_id: conversationId,
 			role: 'user' as const,
-			content,
+			content: content || `[Imagen adjunta: ${attachedImageName || 'archivo'}]`,
 			created_at: new Date().toISOString()
 		};
 		messages = [...messages, userMessage];
-		await saveMessage('user', content);
+		await saveMessage('user', userMessage.content);
 
 		const assistantMessage: Message = {
 			id: crypto.randomUUID(),
@@ -93,9 +109,24 @@
 				conversationId,
 				model: selectedModel,
 				useWeb: useWebSearch,
+				imageDataUrl: attachedImageDataUrl || null,
 				messages: messages.map((m) => ({ role: m.role, content: m.content }))
 			})
 		});
+
+		attachedImageDataUrl = '';
+		attachedImageName = '';
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			messages = messages.map((m) =>
+				m.id === assistantMessage.id
+					? { ...m, content: errorText || 'Error al generar la respuesta.' }
+					: m
+			);
+			isStreaming = false;
+			return;
+		}
 
 		if (!response.body) {
 			isStreaming = false;
@@ -161,10 +192,22 @@
 			<label for="model">Modelo:</label>
 			<select id="model" bind:value={selectedModel} disabled={isStreaming}>
 				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
+				<option value="gpt-5-mini">gpt-5-mini</option>
 				<option value="gpt-4.1-mini">gpt-4.1-mini</option>
+				<option value="gpt-4o-mini">gpt-4o-mini (visión)</option>
 			</select>
 			<label for="web-search">Buscar online</label>
 			<input id="web-search" type="checkbox" bind:checked={useWebSearch} disabled={isStreaming} />
+		</div>
+		<div class="field-row model-row">
+			<label for="img">Imagen:</label>
+			<input id="img" type="file" accept="image/*" onchange={onFileChange} disabled={isStreaming} />
+			{#if attachedImageName}
+				<span class="img-name">{attachedImageName}</span>
+				<button type="button" onclick={() => { attachedImageDataUrl = ''; attachedImageName = ''; }}>
+					Quitar
+				</button>
+			{/if}
 		</div>
 		<textarea
 			rows="3"
@@ -187,6 +230,13 @@
 	.row.user .bubble { background: #e8f4ff; }
 	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 	.model-row { grid-column: 1 / -1; align-items: center; }
+	.img-name {
+		display: inline-block;
+		max-width: 220px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
 	:global(.messages pre) {
 		margin: 0.5rem 0;
 		padding: 0.5rem;
