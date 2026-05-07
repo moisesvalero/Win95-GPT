@@ -45,8 +45,6 @@
 		};
 	};
 
-	const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 	const downloadBlob = (filename: string, blob: Blob) => {
 		if (!browser) return;
 		const url = URL.createObjectURL(blob);
@@ -288,13 +286,9 @@
 			const { done, value } = await reader.read();
 			if (done) break;
 			const chunk = decoder.decode(value, { stream: true });
-			const parts = chunk.split(/(\s+)/);
-			for (const part of parts) {
-				if (!part) continue;
-				finalText += part;
-				messages = messages.map((m) => (m.id === assistantMessage.id ? { ...m, content: finalText } : m));
-				await sleep(12);
-			}
+			if (!chunk) continue;
+			finalText += chunk;
+			messages = messages.map((m) => (m.id === assistantMessage.id ? { ...m, content: finalText } : m));
 		}
 
 		await saveMessage('assistant', finalText);
@@ -440,6 +434,38 @@
 	}
 	:global(.messages code) { font-family: Consolas, 'Courier New', monospace; }
 	:global(.messages p) { margin: 0.35rem 0; }
+	:global(.messages h1),
+	:global(.messages h2),
+	:global(.messages h3),
+	:global(.messages h4),
+	:global(.messages h5),
+	:global(.messages h6) {
+		margin: 0.55rem 0 0.35rem;
+		line-height: 1.2;
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
+	:global(.messages h1) { font-size: 1.15rem; }
+	:global(.messages h2) { font-size: 1.07rem; }
+	:global(.messages h3) { font-size: 1rem; }
+	:global(.messages h4),
+	:global(.messages h5),
+	:global(.messages h6) { font-size: 0.95rem; }
+	:global(.messages ul),
+	:global(.messages ol) {
+		margin: 0.35rem 0 0.35rem 1.2rem;
+		padding: 0;
+	}
+	:global(.messages table),
+	:global(.messages img),
+	:global(.messages pre),
+	:global(.messages blockquote) {
+		max-width: 100%;
+	}
+	:global(.messages * ) {
+		overflow-wrap: anywhere;
+		word-break: break-word;
+	}
 	textarea { width: 100%; min-height: 68px; resize: vertical; }
 	@media (max-width: 900px) {
 		.composer {
@@ -454,6 +480,9 @@
 			min-width: 92px;
 			padding-inline: 6px;
 			font-size: 11px;
+		}
+		.bubble {
+			max-width: 92%;
 		}
 	}
 </style>

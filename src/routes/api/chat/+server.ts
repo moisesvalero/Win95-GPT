@@ -311,16 +311,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const forcedByPrompt = FORCE_WEB_QUERY_REGEX.test(lastPrompt);
 		const shouldUseWeb = Boolean(useWeb) || forcedByPrompt;
 		const webContext = shouldUseWeb && lastPrompt ? await fetchWebContext(lastPrompt.slice(0, 600)) : null;
-		if (shouldUseWeb && !webContext) {
-			return new Response(
-				'La busqueda online esta activa pero las fuentes publicas no respondieron en este momento. Intenta de nuevo en unos segundos.',
-				{ status: 503 }
-			);
-		}
 		const webStatusNote = shouldUseWeb
 			? webContext
 				? 'Búsqueda web activa: tienes contexto online real en los mensajes de sistema. Debes usarlo y citar fuentes [1], [2], etc.'
-				: 'Búsqueda web activa, pero todas las fuentes gratuitas fallaron temporalmente. Indica este fallo técnico de forma breve; no digas que no tienes internet.'
+				: 'Búsqueda web activa, pero las fuentes públicas no respondieron en este intento. Continúa respondiendo con tu conocimiento general y sugiere reintentar la búsqueda si se requieren datos en tiempo real.'
 			: null;
 
 		const messagePayload: Array<{ role: Role; content: string | Array<any> }> = [...chatMessages];
