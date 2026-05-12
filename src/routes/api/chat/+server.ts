@@ -4,6 +4,14 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 
+const API_SECURITY_HEADERS = {
+	'X-Content-Type-Options': 'nosniff',
+	'X-Frame-Options': 'SAMEORIGIN',
+	'X-XSS-Protection': '1; mode=block',
+	'Referrer-Policy': 'strict-origin-when-cross-origin',
+	'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload'
+};
+
 interface ChatInputMessage {
 	role: Role;
 	content: string;
@@ -364,13 +372,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return new Response(readable, {
 			headers: {
 				'content-type': 'text/plain; charset=utf-8',
-				'x-conversation-id': conversationId ?? ''
+				'x-conversation-id': conversationId ?? '',
+				...API_SECURITY_HEADERS
 			}
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Error interno';
 		return new Response(`No se pudo completar la búsqueda online o generar la respuesta: ${message}`, {
-			status: 500
+			status: 500,
+			headers: API_SECURITY_HEADERS
 		});
 	}
 };
@@ -387,7 +397,7 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		role,
 		content
 	});
-	if (error) return new Response(error.message, { status: 400 });
+	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
 
 	await locals.supabase
 		.from('conversations')
@@ -395,14 +405,14 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 		.eq('id', conversationId)
 		.eq('user_id', session.user.id);
 
-	return new Response('ok');
+	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };
 
 export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401 });
+	if (!session) return new Response('Unauthorized', { status: 401, headers: API_SECURITY_HEADERS });
 	const conversationId = url.searchParams.get('id');
-	if (!conversationId) return new Response('Missing conversation id', { status: 400 });
+	if (!conversationId) return new Response('Missing conversation id', { status: 400, headers: API_SECURITY_HEADERS });
 	const { title } = (await request.json()) as { title: string };
 
 	const { error } = await locals.supabase
@@ -411,6 +421,6 @@ export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 		.eq('id', conversationId)
 		.eq('user_id', session.user.id);
 
-	if (error) return new Response(error.message, { status: 400 });
-	return new Response('ok');
+	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
+	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };

@@ -3,6 +3,18 @@ import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import { redirect, type Handle } from '@sveltejs/kit';
 
+const SECURITY_HEADERS = {
+	'X-Content-Type-Options': 'nosniff',
+	'X-Frame-Options': 'SAMEORIGIN',
+	'X-XSS-Protection': '1; mode=block',
+	'Referrer-Policy': 'strict-origin-when-cross-origin',
+	'Permissions-Policy': 'accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
+	'Cross-Origin-Embedder-Policy': 'require-corp',
+	'Cross-Origin-Opener-Policy': 'same-origin',
+	'Cross-Origin-Resource-Policy': 'same-origin',
+	'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload'
+};
+
 const getAllowedEmails = () => {
 	const emails = new Set<string>();
 	if (privateEnv.ALLOWED_EMAIL) emails.add(privateEnv.ALLOWED_EMAIL.trim().toLowerCase());
@@ -75,5 +87,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 		throw redirect(303, '/login');
 	}
 
-	return resolve(event);
+	let response = await resolve(event, {
+		transformPageChunk: ({ html }) => html,
+		filterSerializedResponseHeaders: (name) => {
+			return ['content-type', 'content-length', 'x-request-url'].includes(name.toLowerCase());
+		}
+	});
+	for (const [key, value] of Object.entries(SECURITY_HEADERS)) {
+		response.headers.set(key, value);
+	}
+	return response;
 };
