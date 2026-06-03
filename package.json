@@ -23,13 +23,16 @@
 		}
 	},
 	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		],
 		"overrides": {
 			"@sveltejs/kit>cookie": "0.7.2"
 		}
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
-		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-vercel": "^6.3.3",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@types/node": "^25.9.1",
@@ -47,7 +50,7 @@
 		"vitest": "^4.1.8"
 	},
 	"dependencies": {
-		"@supabase/auth-helpers-sveltekit": "^0.15.0",
+		"@supabase/ssr": "^0.10.3",
 		"@supabase/supabase-js": "^2.105.3",
 		"dompurify": "^3.4.2",
 		"marked": "^18.0.3",

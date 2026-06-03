@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 import { env } from '$env/dynamic/public';
 
 const required = (value: string | undefined, name: string) => {
@@ -9,7 +9,7 @@ const required = (value: string | undefined, name: string) => {
 };
 
 export const createBrowserSupabaseClient = () =>
-	createClient(
+	createBrowserClient(
 		required(env.PUBLIC_SUPABASE_URL, 'PUBLIC_SUPABASE_URL'),
 		required(env.PUBLIC_SUPABASE_ANON_KEY, 'PUBLIC_SUPABASE_ANON_KEY')
 	);

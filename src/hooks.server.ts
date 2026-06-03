@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/auth-helpers-sveltekit';
+import { createServerClient } from '@supabase/ssr';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import { redirect, type Handle } from '@sveltejs/kit';
