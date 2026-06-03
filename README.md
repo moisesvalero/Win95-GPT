@@ -68,8 +68,8 @@ alter table messages enable row level security;
 ## 4) Ejecutar en local
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Abre `http://localhost:5173`.

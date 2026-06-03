@@ -3,6 +3,7 @@
 	"private": true,
 	"license": "PolyForm-Noncommercial-1.0.0",
 	"version": "0.0.1",
+	"packageManager": "pnpm@10.24.0",
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
@@ -19,6 +20,11 @@
 	"overrides": {
 		"@sveltejs/kit": {
 			"cookie": "0.7.2"
+		}
+	},
+	"pnpm": {
+		"overrides": {
+			"@sveltejs/kit>cookie": "0.7.2"
 		}
 	},
 	"devDependencies": {
