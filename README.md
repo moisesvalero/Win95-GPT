@@ -87,5 +87,5 @@ Abre `http://localhost:5173`.
 
 ## 7) Licencia
 
-Este proyecto usa licencia **CC BY-NC 4.0** (`LICENSE`), por lo que no se permite
-uso comercial ni monetización sin permiso explícito del autor.
+Este proyecto usa licencia **PolyForm Noncommercial 1.0.0** (`LICENSE`), por lo
+que no se permite uso comercial ni monetización sin permiso explícito del autor.
