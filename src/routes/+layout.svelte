@@ -15,12 +15,16 @@
 	let installPrompt = $state<DeferredPrompt | null>(null);
 
 	const isStandalone = () =>
-		window.matchMedia('(display-mode: standalone)').matches || (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+		window.matchMedia('(display-mode: standalone)').matches ||
+		(window.navigator as Navigator & { standalone?: boolean }).standalone ===
+			true;
 
 	const detectMobile = () => {
 		const ua = navigator.userAgent.toLowerCase();
 		isIos = /iphone|ipad|ipod/.test(ua);
-		return /iphone|ipad|ipod|android|mobile/.test(ua) || window.innerWidth < 900;
+		return (
+			/iphone|ipad|ipod|android|mobile/.test(ua) || window.innerWidth < 900
+		);
 	};
 
 	const closeInstallPopup = () => {
@@ -52,7 +56,10 @@
 
 <svelte:head>
 	<title>Win95 GPT</title>
-	<meta name="description" content="Clon estilo Windows 95/98 con chat IA, búsqueda online y modo invitado." />
+	<meta
+		name="description"
+		content="Clon estilo Windows 95/98 con chat IA, búsqueda online y modo invitado."
+	/>
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content="Win95 GPT" />
 	<meta
@@ -85,19 +92,27 @@
 				</div>
 			</div>
 			<div class="window-body">
-				<p><strong>Mejor experiencia en móvil:</strong> instala esta app como PWA.</p>
+				<p>
+					<strong>Mejor experiencia en móvil:</strong> instala esta app como PWA.
+				</p>
 				{#if installPrompt}
 					<div class="field-row">
 						<button onclick={triggerInstall}>Instalar ahora</button>
 						<button onclick={closeInstallPopup}>Más tarde</button>
 					</div>
 				{:else if isIos}
-					<p>En iPhone/iPad: pulsa <strong>Compartir</strong> y luego <strong>Añadir a pantalla de inicio</strong>.</p>
+					<p>
+						En iPhone/iPad: pulsa <strong>Compartir</strong> y luego
+						<strong>Añadir a pantalla de inicio</strong>.
+					</p>
 					<div class="field-row">
 						<button onclick={closeInstallPopup}>Entendido</button>
 					</div>
 				{:else}
-					<p>Abre el menú del navegador y pulsa <strong>Instalar app</strong> o <strong>Añadir a pantalla de inicio</strong>.</p>
+					<p>
+						Abre el menú del navegador y pulsa <strong>Instalar app</strong> o
+						<strong>Añadir a pantalla de inicio</strong>.
+					</p>
 					<div class="field-row">
 						<button onclick={closeInstallPopup}>Entendido</button>
 					</div>

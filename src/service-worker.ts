@@ -17,7 +17,9 @@ self.addEventListener('activate', (event) => {
 	event.waitUntil(
 		(async () => {
 			const keys = await caches.keys();
-			await Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)));
+			await Promise.all(
+				keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))
+			);
 		})()
 	);
 });
@@ -34,7 +36,10 @@ self.addEventListener('fetch', (event) => {
 				return network;
 			} catch {
 				const cached = await caches.match(event.request);
-				return cached ?? new Response('Offline', { status: 503, statusText: 'Offline' });
+				return (
+					cached ??
+					new Response('Offline', { status: 503, statusText: 'Offline' })
+				);
 			}
 		})()
 	);

@@ -28,7 +28,7 @@
 
 	const logout = async () => {
 		await supabase.auth.signOut();
-		window.location.href = '/login';
+		await goto(resolve('/login'));
 	};
 
 	const newChat = async () => {
@@ -52,7 +52,10 @@
 		await deleteConversation(activeConversationId);
 	};
 
-	const renameConversation = async (conversationId: string, currentTitle: string) => {
+	const renameConversation = async (
+		conversationId: string,
+		currentTitle: string
+	) => {
 		const title = prompt('Nuevo nombre del chat', currentTitle)?.trim();
 		if (!title) return;
 
@@ -97,7 +100,10 @@
 		{ name: 'GaleriaNova Legacy', url: 'https://galerianova.moisesvalero.es/' },
 		{ name: 'V-Shield', url: 'https://v-shield.moisesvalero.es/' },
 		{ name: 'ScanIt', url: 'https://scanit-rho.vercel.app/' },
-		{ name: 'CV Generator', url: 'https://moisesverse3.gumroad.com/l/pro-cv-generator-sveltekit' },
+		{
+			name: 'CV Generator',
+			url: 'https://moisesverse3.gumroad.com/l/pro-cv-generator-sveltekit'
+		},
 		{ name: 'moisesvalero.es', url: 'https://moisesvalero.es/' },
 		{ name: 'Diseño Web', url: 'https://moisesvalero.es/diseno-web' }
 	];
@@ -141,12 +147,20 @@
 		<div class="window main-window" class:maximized={windowMaximized}>
 			<div class="title-bar">
 				<div class="title-bar-text">Win95 GPT</div>
-				<button class="sidebar-toggle" onclick={() => (sidebarOpen = !sidebarOpen)} aria-label="Toggle sidebar">
+				<button
+					class="sidebar-toggle"
+					onclick={() => (sidebarOpen = !sidebarOpen)}
+					aria-label="Toggle sidebar"
+				>
 					☰
 				</button>
 				<div class="title-bar-controls">
-					<button aria-label="Minimize" onclick={() => (windowMinimized = true)}></button>
-					<button aria-label="Maximize" onclick={() => (windowMaximized = !windowMaximized)}></button>
+					<button aria-label="Minimize" onclick={() => (windowMinimized = true)}
+					></button>
+					<button
+						aria-label="Maximize"
+						onclick={() => (windowMaximized = !windowMaximized)}
+					></button>
 					<button aria-label="Close" onclick={closeCurrentChat}></button>
 				</div>
 			</div>
@@ -162,7 +176,7 @@
 										class="chat-link"
 										onclick={() => {
 											sidebarOpen = false;
-											window.location.assign(`/chat/${conversation.id}`);
+											goto(resolve(`/chat/${conversation.id}`));
 										}}
 									>
 										📁 {conversation.title}
@@ -173,7 +187,10 @@
 											class="small-btn"
 											onclick={(event) => {
 												event.stopPropagation();
-												void renameConversation(conversation.id, conversation.title);
+												void renameConversation(
+													conversation.id,
+													conversation.title
+												);
 											}}
 										>
 											Renombrar
@@ -204,7 +221,9 @@
 <footer class="taskbar">
 	<button class="start-btn" onclick={() => (startOpen = !startOpen)}>
 		<span class="start-logo" aria-hidden="true">
-			<span class="sq red"></span><span class="sq green"></span><span class="sq blue"></span><span class="sq yellow"></span>
+			<span class="sq red"></span><span class="sq green"></span><span
+				class="sq blue"
+			></span><span class="sq yellow"></span>
 		</span>
 		Inicio
 	</button>
@@ -214,7 +233,7 @@
 				<button
 					class="task-tab"
 					class:active={$page.url.pathname === `/chat/${tab.id}`}
-					onclick={() => window.location.assign(`/chat/${tab.id}`)}
+					onclick={() => goto(resolve(`/chat/${tab.id}`))}
 					title={tab.title}
 				>
 					📄 {tab.title}
@@ -222,7 +241,12 @@
 			{/each}
 		</div>
 	</div>
-	<div class="clock">{new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</div>
+	<div class="clock">
+		{new Date().toLocaleTimeString('es-ES', {
+			hour: '2-digit',
+			minute: '2-digit'
+		})}
+	</div>
 
 	{#if startOpen}
 		<div class="window start-menu">
@@ -306,7 +330,11 @@
 		line-height: 1.2;
 		text-align: center;
 	}
-	.main-window { min-height: calc(100vh - 58px); position: relative; z-index: 3; }
+	.main-window {
+		min-height: calc(100vh - 58px);
+		position: relative;
+		z-index: 3;
+	}
 	.main-window.maximized {
 		position: fixed;
 		top: 6px;
@@ -316,20 +344,46 @@
 		z-index: 10;
 		min-height: auto;
 	}
-	.body { display: grid; grid-template-columns: 260px 1fr; gap: 10px; min-height: calc(100vh - 110px); }
+	.body {
+		display: grid;
+		grid-template-columns: 260px 1fr;
+		gap: 10px;
+		min-height: calc(100vh - 110px);
+	}
 	.main-window.maximized .body {
 		min-height: calc(100vh - 98px);
 	}
-	.sidebar { border-right: 1px solid #808080; padding-right: 8px; }
-	.sidebar-toggle { display: none; margin-left: auto; margin-right: 8px; min-width: 30px; }
-	.conv-list { height: 60vh; overflow-y: auto; margin: 0.5rem 0; }
-	.content { min-width: 0; }
+	.sidebar {
+		border-right: 1px solid #808080;
+		padding-right: 8px;
+	}
+	.sidebar-toggle {
+		display: none;
+		margin-left: auto;
+		margin-right: 8px;
+		min-width: 30px;
+	}
+	.conv-list {
+		height: 60vh;
+		overflow-y: auto;
+		margin: 0.5rem 0;
+	}
+	.content {
+		min-width: 0;
+	}
 	.taskbar {
-		position: fixed; left: 0; right: 0; bottom: 0; display: grid;
-		grid-template-columns: auto 1fr auto; align-items: center; gap: 6px;
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		display: grid;
+		grid-template-columns: auto 1fr auto;
+		align-items: center;
+		gap: 6px;
 		padding: 3px 8px calc(3px + env(safe-area-inset-bottom, 0px)) 8px;
 		min-height: 32px;
-		background: silver; border-top: 2px solid #fff;
+		background: silver;
+		border-top: 2px solid #fff;
 		box-shadow: inset 0 1px #dfdfdf;
 		z-index: 50;
 	}
@@ -354,11 +408,23 @@
 		width: 13px;
 		height: 13px;
 	}
-	.sq { display: block; width: 6px; height: 6px; }
-	.red { background: #ff0000; }
-	.green { background: #00a000; }
-	.blue { background: #0000ff; }
-	.yellow { background: #ffcc00; }
+	.sq {
+		display: block;
+		width: 6px;
+		height: 6px;
+	}
+	.red {
+		background: #ff0000;
+	}
+	.green {
+		background: #00a000;
+	}
+	.blue {
+		background: #0000ff;
+	}
+	.yellow {
+		background: #ffcc00;
+	}
 	.task-tabs {
 		display: flex;
 		gap: 4px;
@@ -383,10 +449,29 @@
 		border: 2px inset #c0c0c0;
 		background: #dfdfdf;
 	}
-	.clock { border: 2px inset #c0c0c0; padding: 2px 6px; min-width: 58px; text-align: center; }
-	.start-menu { position: absolute; bottom: calc(36px + env(safe-area-inset-bottom, 0px)); left: 8px; z-index: 99; min-width: 220px; }
-	.menu-body { display: grid; gap: 8px; }
-	.menu-body button, .menu-body a { text-align: left; text-decoration: none; color: #000; }
+	.clock {
+		border: 2px inset #c0c0c0;
+		padding: 2px 6px;
+		min-width: 58px;
+		text-align: center;
+	}
+	.start-menu {
+		position: absolute;
+		bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+		left: 8px;
+		z-index: 99;
+		min-width: 220px;
+	}
+	.menu-body {
+		display: grid;
+		gap: 8px;
+	}
+	.menu-body button,
+	.menu-body a {
+		text-align: left;
+		text-decoration: none;
+		color: #000;
+	}
 	.start-link {
 		display: inline-flex;
 		align-items: center;
@@ -442,8 +527,12 @@
 		line-height: 1.2;
 	}
 	@media (max-width: 900px) {
-		.sidebar-toggle { display: inline-block; }
-		.body { grid-template-columns: 1fr; }
+		.sidebar-toggle {
+			display: inline-block;
+		}
+		.body {
+			grid-template-columns: 1fr;
+		}
 		.taskbar {
 			gap: 4px;
 			padding: 2px 6px calc(2px + env(safe-area-inset-bottom, 0px)) 6px;
@@ -478,12 +567,22 @@
 			border: 2px outset #c0c0c0;
 			padding: 8px;
 		}
-		.sidebar.open { display: block; }
-		.chat-item { align-items: flex-start; }
-		.chat-actions { flex-wrap: wrap; }
+		.sidebar.open {
+			display: block;
+		}
+		.chat-item {
+			align-items: flex-start;
+		}
+		.chat-actions {
+			flex-wrap: wrap;
+		}
 	}
 	@media (max-width: 520px) {
-		.clock { display: none; }
-		.taskbar { grid-template-columns: auto 1fr; }
+		.clock {
+			display: none;
+		}
+		.taskbar {
+			grid-template-columns: auto 1fr;
+		}
 	}
 </style>

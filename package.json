@@ -9,18 +9,36 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"lint": "eslint .",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "vitest run --passWithNoTests"
+	},
+	"overrides": {
+		"@sveltejs/kit": {
+			"cookie": "0.7.2"
+		}
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@types/node": "^25.9.1",
 		"@types/prismjs": "^1.26.6",
+		"eslint": "^10.4.1",
+		"eslint-plugin-svelte": "^3.19.0",
+		"globals": "^17.6.0",
+		"prettier": "^3.8.3",
+		"prettier-plugin-svelte": "^4.1.0",
 		"svelte": "^5.51.0",
 		"svelte-check": "^4.4.2",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1"
+		"typescript-eslint": "^8.60.1",
+		"vite": "^7.3.1",
+		"vitest": "^4.1.8"
 	},
 	"dependencies": {
 		"@supabase/auth-helpers-sveltekit": "^0.15.0",

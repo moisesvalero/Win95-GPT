@@ -1,6 +1,10 @@
 <script lang="ts">
 	let { data, form } = $props();
-	const emailValue = $derived(typeof form === 'object' && form && 'email' in form ? String(form.email ?? '') : '');
+	const emailValue = $derived(
+		typeof form === 'object' && form && 'email' in form
+			? String(form.email ?? '')
+			: ''
+	);
 </script>
 
 <main class="login-wrap">
@@ -24,14 +28,23 @@
 					{/if}
 
 					<label for="email">Email (admin)</label>
-					<input id="email" name="email" type="email" value={emailValue} required />
+					<input
+						id="email"
+						name="email"
+						type="email"
+						value={emailValue}
+						required
+					/>
 
 					<label for="password">Contraseña</label>
 					<input id="password" name="password" type="password" required />
 
 					<div class="field-row">
-						<button type="submit" formaction="?/admin">Entrar como Admin</button>
-						<button type="submit" formaction="?/guest" formnovalidate>Entrar como Invitado</button>
+						<button type="submit" formaction="?/admin">Entrar como Admin</button
+						>
+						<button type="submit" formaction="?/guest" formnovalidate
+							>Entrar como Invitado</button
+						>
 					</div>
 				</fieldset>
 			</form>

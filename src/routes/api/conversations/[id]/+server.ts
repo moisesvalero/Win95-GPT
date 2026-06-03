@@ -10,11 +10,19 @@ const API_SECURITY_HEADERS = {
 
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401, headers: API_SECURITY_HEADERS });
+	if (!session)
+		return new Response('Unauthorized', {
+			status: 401,
+			headers: API_SECURITY_HEADERS
+		});
 
 	const { title } = (await request.json()) as { title?: string };
 	const safeTitle = (title ?? '').trim();
-	if (!safeTitle) return new Response('Title is required', { status: 400, headers: API_SECURITY_HEADERS });
+	if (!safeTitle)
+		return new Response('Title is required', {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 
 	const { error } = await locals.supabase
 		.from('conversations')
@@ -22,13 +30,21 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 		.eq('id', params.id)
 		.eq('user_id', session.user.id);
 
-	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
+	if (error)
+		return new Response(error.message, {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };
 
 export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401, headers: API_SECURITY_HEADERS });
+	if (!session)
+		return new Response('Unauthorized', {
+			status: 401,
+			headers: API_SECURITY_HEADERS
+		});
 
 	const { error } = await locals.supabase
 		.from('conversations')
@@ -36,6 +52,10 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		.eq('id', params.id)
 		.eq('user_id', session.user.id);
 
-	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
+	if (error)
+		return new Response(error.message, {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };

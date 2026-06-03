@@ -3,6 +3,7 @@ import { openai } from '$lib/openai';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 const API_SECURITY_HEADERS = {
 	'X-Content-Type-Options': 'nosniff',
@@ -43,7 +44,10 @@ const fetchWithTimeout = async (url: string, timeoutMs = 8000) => {
 	}
 };
 
-const fetchJsonWithTimeout = async <T>(url: string, timeoutMs = 8000): Promise<T | null> => {
+const fetchJsonWithTimeout = async <T>(
+	url: string,
+	timeoutMs = 8000
+): Promise<T | null> => {
 	try {
 		const res = await fetchWithTimeout(url, timeoutMs);
 		if (!res.ok) return null;
@@ -53,7 +57,10 @@ const fetchJsonWithTimeout = async <T>(url: string, timeoutMs = 8000): Promise<T
 	}
 };
 
-const fetchTextWithTimeout = async (url: string, timeoutMs = 8000): Promise<string | null> => {
+const fetchTextWithTimeout = async (
+	url: string,
+	timeoutMs = 8000
+): Promise<string | null> => {
 	try {
 		const res = await fetchWithTimeout(url, timeoutMs);
 		if (!res.ok) return null;
@@ -77,7 +84,8 @@ const normalizeDuckDuckGoUrl = (rawHref: string): string | null => {
 	if (!rawHref) return null;
 	try {
 		const decoded = decodeURIComponent(rawHref);
-		if (decoded.startsWith('http://') || decoded.startsWith('https://')) return decoded;
+		if (decoded.startsWith('http://') || decoded.startsWith('https://'))
+			return decoded;
 		if (decoded.startsWith('//')) return `https:${decoded}`;
 
 		// DuckDuckGo redirect format: /l/?uddg=<encodedUrl>
@@ -86,7 +94,8 @@ const normalizeDuckDuckGoUrl = (rawHref: string): string | null => {
 			const uddg = u.searchParams.get('uddg');
 			if (uddg) {
 				const target = decodeURIComponent(uddg);
-				if (target.startsWith('http://') || target.startsWith('https://')) return target;
+				if (target.startsWith('http://') || target.startsWith('https://'))
+					return target;
 			}
 		}
 
@@ -97,11 +106,17 @@ const normalizeDuckDuckGoUrl = (rawHref: string): string | null => {
 	return null;
 };
 
-const extractSearchResults = (html: string): Array<{ title: string; url: string }> => {
+const extractSearchResults = (
+	html: string
+): Array<{ title: string; url: string }> => {
 	const results: Array<{ title: string; url: string }> = [];
 
 	// Main DDG HTML parser
-	const primary = [...html.matchAll(/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+	const primary = [
+		...html.matchAll(
+			/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
+		)
+	];
 	for (const match of primary) {
 		const url = normalizeDuckDuckGoUrl(match[1]);
 		const title = decodeHtml(match[2]);
@@ -111,7 +126,9 @@ const extractSearchResults = (html: string): Array<{ title: string; url: string 
 	}
 
 	// Fallback parser for Lite/alternative markup
-	const fallback = [...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+	const fallback = [
+		...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)
+	];
 	for (const match of fallback) {
 		if (results.length >= 8) break;
 		const url = normalizeDuckDuckGoUrl(match[1]);
@@ -119,7 +136,8 @@ const extractSearchResults = (html: string): Array<{ title: string; url: string 
 		if (!url || !title) continue;
 		if (results.some((r) => r.url === url)) continue;
 		// Skip navigation/noise links
-		if (/duckduckgo\.com\/(html|lite|about|privacy|settings)/i.test(url)) continue;
+		if (/duckduckgo\.com\/(html|lite|about|privacy|settings)/i.test(url))
+			continue;
 		results.push({ title, url });
 	}
 
@@ -134,16 +152,25 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 		const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es&gl=ES&ceid=ES:es`;
 		const rssText = await fetchTextWithTimeout(rssUrl, 9000);
 		if (rssText) {
-			const items = [...rssText.matchAll(/<item>([\s\S]*?)<\/item>/gi)].slice(0, 6);
+			const items = [...rssText.matchAll(/<item>([\s\S]*?)<\/item>/gi)].slice(
+				0,
+				6
+			);
 			for (const itemMatch of items) {
 				const item = itemMatch[1];
-				const title = decodeHtml(item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? '');
-				const rawLink = decodeHtml(item.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? '');
-				const snippet = decodeHtml(item.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ?? '').slice(
-					0,
-					450
+				const title = decodeHtml(
+					item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? ''
 				);
-				const url = rawLink.startsWith('http://') || rawLink.startsWith('https://') ? rawLink : '';
+				const rawLink = decodeHtml(
+					item.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? ''
+				);
+				const snippet = decodeHtml(
+					item.match(/<description>([\s\S]*?)<\/description>/i)?.[1] ?? ''
+				).slice(0, 450);
+				const url =
+					rawLink.startsWith('http://') || rawLink.startsWith('https://')
+						? rawLink
+						: '';
 				if (!title || !url) continue;
 				sources.push({ title, url, snippet });
 				if (sources.length >= 5) break;
@@ -235,7 +262,10 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 				query?: { search?: WikiSearchItem[] };
 			};
 			const wikiUrl = `https://es.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&utf8=1&origin=*`;
-			const wiki = await fetchJsonWithTimeout<WikiSearchResponse>(wikiUrl, 9000);
+			const wiki = await fetchJsonWithTimeout<WikiSearchResponse>(
+				wikiUrl,
+				9000
+			);
 			const wikiResults = wiki?.query?.search?.slice(0, 5) ?? [];
 			for (const item of wikiResults) {
 				sources.push({
@@ -262,20 +292,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	if (!session) return new Response('Unauthorized', { status: 401 });
 
 	try {
-		const { messages, conversationId, model, useWeb, imageDataUrl } = await request.json();
+		const { messages, conversationId, model, useWeb, imageDataUrl } =
+			await request.json();
 		const userEmail = (session.user.email ?? '').toLowerCase();
 		const demoEmails = getDemoEmails();
-		const isGuestUser = userEmail !== '' && userEmail === (privateEnv.GUEST_EMAIL ?? '').trim().toLowerCase();
+		const isGuestUser =
+			userEmail !== '' &&
+			userEmail === (privateEnv.GUEST_EMAIL ?? '').trim().toLowerCase();
 		const isDemoUser = demoEmails.includes(userEmail) || isGuestUser;
 
 		if (isDemoUser) {
 			const maxPromptChars = Number(
-				isGuestUser ? privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700' : privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200'
+				isGuestUser
+					? (privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700')
+					: (privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200')
 			);
 			const maxResponsesPerDay = Number(
 				isGuestUser
-					? privateEnv.GUEST_MAX_RESPONSES_PER_DAY ?? '8'
-					: privateEnv.DEMO_MAX_RESPONSES_PER_DAY ?? '20'
+					? (privateEnv.GUEST_MAX_RESPONSES_PER_DAY ?? '8')
+					: (privateEnv.DEMO_MAX_RESPONSES_PER_DAY ?? '20')
 			);
 			const today = new Date();
 			today.setHours(0, 0, 0, 0);
@@ -293,7 +328,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 			const { count: responsesToday, error: usageError } = await locals.supabase
 				.from('messages')
-				.select('id, conversations!inner(user_id)', { count: 'exact', head: true })
+				.select('id, conversations!inner(user_id)', {
+					count: 'exact',
+					head: true
+				})
 				.eq('role', 'assistant')
 				.eq('conversations.user_id', session.user.id)
 				.gte('created_at', todayIso);
@@ -308,24 +346,37 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		}
 
-		const requestedModel = (model as string | undefined) || publicEnv.PUBLIC_MODEL || 'gpt-5.4-mini';
-		let selectedModel = ALLOWED_MINI_MODELS.has(requestedModel) ? requestedModel : 'gpt-5.4-mini';
+		const requestedModel =
+			(model as string | undefined) || publicEnv.PUBLIC_MODEL || 'gpt-5.4-mini';
+		let selectedModel = ALLOWED_MINI_MODELS.has(requestedModel)
+			? requestedModel
+			: 'gpt-5.4-mini';
 		if (imageDataUrl && selectedModel !== 'gpt-4o-mini') {
 			selectedModel = 'gpt-4o-mini';
 		}
 		const chatMessages = (messages as ChatInputMessage[]) ?? [];
-		const lastUserMessage = [...chatMessages].reverse().find((message) => message.role === 'user');
+		const lastUserMessage = [...chatMessages]
+			.reverse()
+			.find((message) => message.role === 'user');
 		const lastPrompt = lastUserMessage?.content ?? '';
 		const forcedByPrompt = FORCE_WEB_QUERY_REGEX.test(lastPrompt);
 		const shouldUseWeb = Boolean(useWeb) || forcedByPrompt;
-		const webContext = shouldUseWeb && lastPrompt ? await fetchWebContext(lastPrompt.slice(0, 600)) : null;
+		const webContext =
+			shouldUseWeb && lastPrompt
+				? await fetchWebContext(lastPrompt.slice(0, 600))
+				: null;
 		const webStatusNote = shouldUseWeb
 			? webContext
 				? 'Búsqueda web activa: tienes contexto online real en los mensajes de sistema. Debes usarlo y citar fuentes [1], [2], etc.'
 				: 'Búsqueda web activa, pero las fuentes públicas no respondieron en este intento. Continúa respondiendo con tu conocimiento general y sugiere reintentar la búsqueda si se requieren datos en tiempo real.'
 			: null;
 
-		const messagePayload: Array<{ role: Role; content: string | Array<any> }> = [...chatMessages];
+		const messagePayload: ChatCompletionMessageParam[] = chatMessages.map(
+			(message) => ({
+				role: message.role,
+				content: message.content
+			})
+		);
 		if (imageDataUrl && messagePayload.length > 0) {
 			const lastUserIndex = [...messagePayload]
 				.map((message, index) => ({ message, index }))
@@ -336,7 +387,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				messagePayload[lastUserIndex] = {
 					role: 'user',
 					content: [
-						{ type: 'text', text: String(lastUser.content || 'Analiza la imagen.') },
+						{
+							type: 'text',
+							text: String(lastUser.content || 'Analiza la imagen.')
+						},
 						{ type: 'image_url', image_url: { url: imageDataUrl } }
 					]
 				};
@@ -346,16 +400,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const stream = await openai.chat.completions.create({
 			model: selectedModel,
 			stream: true,
-			messages: ([
+			messages: [
 				{
 					role: 'system',
 					content:
 						'Eres un asistente útil. Responde en el mismo idioma en que te escriban. Si la búsqueda web está activa, usa siempre el contexto web recibido y cita las fuentes como [1], [2], etc cuando afirmes datos de actualidad. Nunca digas que no puedes buscar en internet si has recibido contexto web.'
 				},
-				...(webStatusNote ? [{ role: 'system' as const, content: webStatusNote }] : []),
-				...(webContext ? [{ role: 'system' as const, content: webContext }] : []),
+				...(webStatusNote
+					? [{ role: 'system' as const, content: webStatusNote }]
+					: []),
+				...(webContext
+					? [{ role: 'system' as const, content: webContext }]
+					: []),
 				...messagePayload
-			] as any)
+			] satisfies ChatCompletionMessageParam[]
 		});
 
 		const encoder = new TextEncoder();
@@ -378,10 +436,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Error interno';
-		return new Response(`No se pudo completar la búsqueda online o generar la respuesta: ${message}`, {
-			status: 500,
-			headers: API_SECURITY_HEADERS
-		});
+		return new Response(
+			`No se pudo completar la búsqueda online o generar la respuesta: ${message}`,
+			{
+				status: 500,
+				headers: API_SECURITY_HEADERS
+			}
+		);
 	}
 };
 
@@ -389,15 +450,23 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 	const session = await locals.getSession();
 	if (!session) return new Response('Unauthorized', { status: 401 });
 	const conversationId = url.searchParams.get('id');
-	if (!conversationId) return new Response('Missing conversation id', { status: 400 });
+	if (!conversationId)
+		return new Response('Missing conversation id', { status: 400 });
 
-	const { role, content } = (await request.json()) as { role: Role; content: string };
+	const { role, content } = (await request.json()) as {
+		role: Role;
+		content: string;
+	};
 	const { error } = await locals.supabase.from('messages').insert({
 		conversation_id: conversationId,
 		role,
 		content
 	});
-	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
+	if (error)
+		return new Response(error.message, {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 
 	await locals.supabase
 		.from('conversations')
@@ -410,9 +479,17 @@ export const PUT: RequestHandler = async ({ request, locals, url }) => {
 
 export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401, headers: API_SECURITY_HEADERS });
+	if (!session)
+		return new Response('Unauthorized', {
+			status: 401,
+			headers: API_SECURITY_HEADERS
+		});
 	const conversationId = url.searchParams.get('id');
-	if (!conversationId) return new Response('Missing conversation id', { status: 400, headers: API_SECURITY_HEADERS });
+	if (!conversationId)
+		return new Response('Missing conversation id', {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 	const { title } = (await request.json()) as { title: string };
 
 	const { error } = await locals.supabase
@@ -421,6 +498,10 @@ export const PATCH: RequestHandler = async ({ request, locals, url }) => {
 		.eq('id', conversationId)
 		.eq('user_id', session.user.id);
 
-	if (error) return new Response(error.message, { status: 400, headers: API_SECURITY_HEADERS });
+	if (error)
+		return new Response(error.message, {
+			status: 400,
+			headers: API_SECURITY_HEADERS
+		});
 	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };

@@ -76,9 +76,9 @@ Abre `http://localhost:5173`.
 
 ## 5) Deploy en Vercel
 
-1. Importa el repo en Vercel  
-2. Añade las variables de entorno en **Project Settings -> Environment Variables**  
-3. Redeploy  
+1. Importa el repo en Vercel
+2. Añade las variables de entorno en **Project Settings -> Environment Variables**
+3. Redeploy
 
 ## 6) Login
 

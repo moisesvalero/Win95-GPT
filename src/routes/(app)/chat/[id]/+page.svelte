@@ -17,11 +17,13 @@
 	let { data }: { data: PageData } = $props();
 	let conversationId = $derived(data.conversation.id as string);
 	let initialMessages = $derived((data.messages ?? []) as Message[]);
-	let messages = $state([] as Message[]);
+	let messages = $derived(initialMessages);
 	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
 	let useWebSearch = $state(true);
 	let pendingExportFormat = $state<null | 'txt' | 'md' | 'json' | 'pdf'>(null);
-	let messageExports = $state<Record<string, { format: 'txt' | 'md' | 'json' | 'pdf' }>>({});
+	let messageExports = $state<
+		Record<string, { format: 'txt' | 'md' | 'json' | 'pdf' }>
+	>({});
 	let attachedImageDataUrl = $state('');
 	let attachedImageName = $state('');
 	let prompt = $state('');
@@ -36,11 +38,15 @@
 
 	const renderMarkdown = (node: HTMLElement, content: string) => {
 		node.innerHTML = renderAssistant(content);
-		node.querySelectorAll('pre code').forEach((block) => Prism.highlightElement(block as HTMLElement));
+		node
+			.querySelectorAll('pre code')
+			.forEach((block) => Prism.highlightElement(block as HTMLElement));
 		return {
 			update(next: string) {
 				node.innerHTML = renderAssistant(next);
-				node.querySelectorAll('pre code').forEach((block) => Prism.highlightElement(block as HTMLElement));
+				node
+					.querySelectorAll('pre code')
+					.forEach((block) => Prism.highlightElement(block as HTMLElement));
 			}
 		};
 	};
@@ -57,18 +63,30 @@
 		URL.revokeObjectURL(url);
 	};
 
-	const exportMessage = async (content: string, format: 'txt' | 'md' | 'json' | 'pdf') => {
+	const exportMessage = async (
+		content: string,
+		format: 'txt' | 'md' | 'json' | 'pdf'
+	) => {
 		if (format === 'txt') {
-			downloadBlob('respuesta.txt', new Blob([content], { type: 'text/plain;charset=utf-8' }));
+			downloadBlob(
+				'respuesta.txt',
+				new Blob([content], { type: 'text/plain;charset=utf-8' })
+			);
 			return;
 		}
 		if (format === 'md') {
-			downloadBlob('respuesta.md', new Blob([content], { type: 'text/markdown;charset=utf-8' }));
+			downloadBlob(
+				'respuesta.md',
+				new Blob([content], { type: 'text/markdown;charset=utf-8' })
+			);
 			return;
 		}
 		if (format === 'json') {
 			const payload = JSON.stringify({ content }, null, 2);
-			downloadBlob('respuesta.json', new Blob([payload], { type: 'application/json;charset=utf-8' }));
+			downloadBlob(
+				'respuesta.json',
+				new Blob([payload], { type: 'application/json;charset=utf-8' })
+			);
 			return;
 		}
 
@@ -135,10 +153,15 @@
 
 		const pdfBytes = await pdfDoc.save();
 		const pdfByteArray = Uint8Array.from(pdfBytes);
-		downloadBlob('respuesta.pdf', new Blob([pdfByteArray], { type: 'application/pdf' }));
+		downloadBlob(
+			'respuesta.pdf',
+			new Blob([pdfByteArray], { type: 'application/pdf' })
+		);
 	};
 
-	const detectRequestedExport = (text: string): null | 'txt' | 'md' | 'json' | 'pdf' => {
+	const detectRequestedExport = (
+		text: string
+	): null | 'txt' | 'md' | 'json' | 'pdf' => {
 		const q = text.toLowerCase();
 		if (/\bpdf\b/.test(q)) return 'pdf';
 		if (/\bjson\b/.test(q)) return 'json';
@@ -288,7 +311,9 @@
 			const chunk = decoder.decode(value, { stream: true });
 			if (!chunk) continue;
 			finalText += chunk;
-			messages = messages.map((m) => (m.id === assistantMessage.id ? { ...m, content: finalText } : m));
+			messages = messages.map((m) =>
+				m.id === assistantMessage.id ? { ...m, content: finalText } : m
+			);
 		}
 
 		await saveMessage('assistant', finalText);
@@ -310,8 +335,9 @@
 	});
 
 	$effect(() => {
-		messages.length;
-		if (scroller) scroller.scrollTop = scroller.scrollHeight;
+		const messageCount = messages.length;
+		if (!scroller || messageCount < 0) return;
+		scroller.scrollTop = scroller.scrollHeight;
 	});
 
 	const onKey = async (event: KeyboardEvent) => {
@@ -334,7 +360,11 @@
 								<button
 									class="tiny-btn"
 									type="button"
-									onclick={() => exportMessage(message.content, messageExports[message.id].format)}
+									onclick={() =>
+										exportMessage(
+											message.content,
+											messageExports[message.id].format
+										)}
 								>
 									{exportLabel(messageExports[message.id].format)}
 								</button>
@@ -369,10 +399,22 @@
 		</div>
 		<div class="field-row model-row">
 			<label for="img">Imagen:</label>
-			<input id="img" type="file" accept="image/*" onchange={onFileChange} disabled={isStreaming} />
+			<input
+				id="img"
+				type="file"
+				accept="image/*"
+				onchange={onFileChange}
+				disabled={isStreaming}
+			/>
 			{#if attachedImageName}
 				<span class="img-name">{attachedImageName}</span>
-				<button type="button" onclick={() => { attachedImageDataUrl = ''; attachedImageName = ''; }}>
+				<button
+					type="button"
+					onclick={() => {
+						attachedImageDataUrl = '';
+						attachedImageName = '';
+					}}
+				>
 					Quitar
 				</button>
 			{/if}
@@ -384,18 +426,42 @@
 			disabled={isStreaming}
 			onkeydown={onKey}
 		></textarea>
-		<button onclick={send} disabled={isStreaming || !prompt.trim()}>Enviar</button>
+		<button onclick={send} disabled={isStreaming || !prompt.trim()}
+			>Enviar</button
+		>
 	</div>
 </div>
 
 <style>
-	.chat-wrap { display: grid; grid-template-rows: 1fr auto; gap: 8px; height: calc(100vh - 140px); }
-	.messages { overflow-y: auto; padding: 10px; }
-	.row { display: flex; margin-bottom: 8px; }
-	.row.user { justify-content: flex-end; }
-	.row.assistant { justify-content: flex-start; }
-	.bubble { max-width: 78%; padding: 8px; background: #fff; border: 2px solid #808080; }
-	.row.user .bubble { background: #e8f4ff; }
+	.chat-wrap {
+		display: grid;
+		grid-template-rows: 1fr auto;
+		gap: 8px;
+		height: calc(100vh - 140px);
+	}
+	.messages {
+		overflow-y: auto;
+		padding: 10px;
+	}
+	.row {
+		display: flex;
+		margin-bottom: 8px;
+	}
+	.row.user {
+		justify-content: flex-end;
+	}
+	.row.assistant {
+		justify-content: flex-start;
+	}
+	.bubble {
+		max-width: 78%;
+		padding: 8px;
+		background: #fff;
+		border: 2px solid #808080;
+	}
+	.row.user .bubble {
+		background: #e8f4ff;
+	}
 	.assistant-actions {
 		display: flex;
 		flex-wrap: wrap;
@@ -408,8 +474,16 @@
 		font-size: 11px;
 		line-height: 1;
 	}
-	.composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
-	.model-row { grid-column: 1 / -1; align-items: center; }
+	.composer {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 8px;
+		align-items: end;
+	}
+	.model-row {
+		grid-column: 1 / -1;
+		align-items: center;
+	}
 	.web-toggle {
 		min-width: 120px;
 		font-weight: 700;
@@ -432,8 +506,12 @@
 		color: #f8f8f2;
 		overflow-x: auto;
 	}
-	:global(.messages code) { font-family: Consolas, 'Courier New', monospace; }
-	:global(.messages p) { margin: 0.35rem 0; }
+	:global(.messages code) {
+		font-family: Consolas, 'Courier New', monospace;
+	}
+	:global(.messages p) {
+		margin: 0.35rem 0;
+	}
 	:global(.messages h1),
 	:global(.messages h2),
 	:global(.messages h3),
@@ -445,12 +523,20 @@
 		overflow-wrap: anywhere;
 		word-break: break-word;
 	}
-	:global(.messages h1) { font-size: 1.15rem; }
-	:global(.messages h2) { font-size: 1.07rem; }
-	:global(.messages h3) { font-size: 1rem; }
+	:global(.messages h1) {
+		font-size: 1.15rem;
+	}
+	:global(.messages h2) {
+		font-size: 1.07rem;
+	}
+	:global(.messages h3) {
+		font-size: 1rem;
+	}
 	:global(.messages h4),
 	:global(.messages h5),
-	:global(.messages h6) { font-size: 0.95rem; }
+	:global(.messages h6) {
+		font-size: 0.95rem;
+	}
 	:global(.messages ul),
 	:global(.messages ol) {
 		margin: 0.35rem 0 0.35rem 1.2rem;
@@ -462,11 +548,15 @@
 	:global(.messages blockquote) {
 		max-width: 100%;
 	}
-	:global(.messages * ) {
+	:global(.messages *) {
 		overflow-wrap: anywhere;
 		word-break: break-word;
 	}
-	textarea { width: 100%; min-height: 68px; resize: vertical; }
+	textarea {
+		width: 100%;
+		min-height: 68px;
+		resize: vertical;
+	}
 	@media (max-width: 900px) {
 		.composer {
 			grid-template-columns: 1fr;

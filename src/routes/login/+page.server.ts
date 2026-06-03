@@ -20,14 +20,19 @@ export const actions: Actions = {
 	admin: async ({ request, locals }) => {
 		try {
 			const data = await request.formData();
-			const email = String(data.get('email') ?? '').trim().toLowerCase();
+			const email = String(data.get('email') ?? '')
+				.trim()
+				.toLowerCase();
 			const password = String(data.get('password') ?? '');
 
 			if (!isAllowedLoginEmail(email)) {
 				return fail(403, { error: 'Acceso denegado', email });
 			}
 
-			const { error } = await locals.supabase.auth.signInWithPassword({ email, password });
+			const { error } = await locals.supabase.auth.signInWithPassword({
+				email,
+				password
+			});
 
 			if (error) {
 				return fail(400, { error: error.message, email });
@@ -37,7 +42,8 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('[LOGIN_ADMIN_ERROR]', error);
 			if (isRedirect(error)) throw error;
-			const message = error instanceof Error ? error.message : 'Error inesperado en login';
+			const message =
+				error instanceof Error ? error.message : 'Error inesperado en login';
 			return fail(500, { error: message });
 		}
 	},
@@ -51,7 +57,8 @@ export const actions: Actions = {
 			const guestPassword = env.GUEST_PASSWORD ?? '';
 			if (!guestEmail || !guestPassword) {
 				return fail(500, {
-					error: 'Falta configurar GUEST_EMAIL/GUEST_PASSWORD en variables de entorno.'
+					error:
+						'Falta configurar GUEST_EMAIL/GUEST_PASSWORD en variables de entorno.'
 				});
 			}
 
@@ -67,7 +74,10 @@ export const actions: Actions = {
 		} catch (error) {
 			console.error('[LOGIN_GUEST_ERROR]', error);
 			if (isRedirect(error)) throw error;
-			const message = error instanceof Error ? error.message : 'Error inesperado en login invitado';
+			const message =
+				error instanceof Error
+					? error.message
+					: 'Error inesperado en login invitado';
 			return fail(500, { error: message });
 		}
 	}

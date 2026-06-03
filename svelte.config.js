@@ -9,7 +9,9 @@ const config = {
 		adapter: adapter()
 	},
 	vitePlugin: {
-		dynamicCompileOptions: ({ filename }) => ({ runes: !filename.includes('node_modules') })
+		dynamicCompileOptions: ({ filename }) => ({
+			runes: !filename.includes('node_modules')
+		})
 	}
 };
 
