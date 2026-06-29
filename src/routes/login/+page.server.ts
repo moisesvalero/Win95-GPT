@@ -2,31 +2,19 @@ import { env } from '$env/dynamic/private';
 import { fail, isRedirect, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
-const isAllowedLoginEmail = (email: string) => {
-	const allowed = new Set<string>();
-	if (env.ALLOWED_EMAIL) allowed.add(env.ALLOWED_EMAIL.trim().toLowerCase());
-	for (const demoEmail of (env.DEMO_EMAILS ?? '').split(',')) {
-		const clean = demoEmail.trim().toLowerCase();
-		if (clean) allowed.add(clean);
-	}
-	return allowed.has(email.toLowerCase());
-};
-
 export const load: PageServerLoad = async ({ url }) => ({
 	unauthorized: url.searchParams.get('error') === 'unauthorized'
 });
 
 export const actions: Actions = {
-	admin: async ({ request, locals }) => {
+	login: async ({ request, locals }) => {
 		try {
 			const data = await request.formData();
-			const email = String(data.get('email') ?? '')
-				.trim()
-				.toLowerCase();
+			const email = String(data.get('email') ?? '').trim().toLowerCase();
 			const password = String(data.get('password') ?? '');
 
-			if (!isAllowedLoginEmail(email)) {
-				return fail(403, { error: 'Acceso denegado', email });
+			if (!email || !password) {
+				return fail(400, { error: 'Email y contraseña requeridos', email });
 			}
 
 			const { error } = await locals.supabase.auth.signInWithPassword({
@@ -34,17 +22,11 @@ export const actions: Actions = {
 				password
 			});
 
-			if (error) {
-				return fail(400, { error: error.message, email });
-			}
-
+			if (error) return fail(400, { error: error.message, email });
 			throw redirect(303, '/chat/new');
 		} catch (error) {
-			console.error('[LOGIN_ADMIN_ERROR]', error);
 			if (isRedirect(error)) throw error;
-			const message =
-				error instanceof Error ? error.message : 'Error inesperado en login';
-			return fail(500, { error: message });
+			return fail(500, { error: 'Error inesperado en login' });
 		}
 	},
 	guest: async ({ locals }) => {
@@ -57,8 +39,7 @@ export const actions: Actions = {
 			const guestPassword = env.GUEST_PASSWORD ?? '';
 			if (!guestEmail || !guestPassword) {
 				return fail(500, {
-					error:
-						'Falta configurar GUEST_EMAIL/GUEST_PASSWORD en variables de entorno.'
+					error: 'Falta configurar GUEST_EMAIL/GUEST_PASSWORD'
 				});
 			}
 
@@ -66,19 +47,37 @@ export const actions: Actions = {
 				email: guestEmail,
 				password: guestPassword
 			});
-			if (error) {
-				return fail(400, { error: `Invitado no disponible: ${error.message}` });
-			}
+			if (error) return fail(400, { error: `Invitado no disponible: ${error.message}` });
 
 			throw redirect(303, '/chat/new');
 		} catch (error) {
-			console.error('[LOGIN_GUEST_ERROR]', error);
 			if (isRedirect(error)) throw error;
-			const message =
-				error instanceof Error
-					? error.message
-					: 'Error inesperado en login invitado';
-			return fail(500, { error: message });
+			return fail(500, { error: 'Error inesperado en login invitado' });
+		}
+	},
+	signup: async ({ request, locals }) => {
+		try {
+			const data = await request.formData();
+			const email = String(data.get('email') ?? '').trim().toLowerCase();
+			const password = String(data.get('password') ?? '');
+
+			if (!email || !password) {
+				return fail(400, { error: 'Email y contraseña requeridos' });
+			}
+			if (password.length < 6) {
+				return fail(400, { error: 'La contraseña debe tener al menos 6 caracteres' });
+			}
+
+			const { error } = await locals.supabase.auth.signUp({
+				email,
+				password
+			});
+
+			if (error) return fail(400, { error: error.message });
+			return { signupSuccess: true, error: null };
+		} catch (error) {
+			if (isRedirect(error)) throw error;
+			return fail(500, { error: 'Error al registrarse' });
 		}
 	}
 };

@@ -1,10 +1,8 @@
 <script lang="ts">
 	let { data, form } = $props();
-	const emailValue = $derived(
-		typeof form === 'object' && form && 'email' in form
-			? String(form.email ?? '')
-			: ''
-	);
+	let mode = $state<'login' | 'signup'>('login');
+	let email = $state('');
+	let password = $state('');
 </script>
 
 <main class="login-wrap">
@@ -16,43 +14,81 @@
 			</div>
 		</div>
 		<div class="window-body">
-			<form method="POST" class="login-form">
-				<fieldset>
-					<legend>Iniciar sesión</legend>
+			<div class="tab-bar">
+				<button
+					class="tab"
+					class:active={mode === 'login'}
+					onclick={() => (mode = 'login')}
+				>
+					Iniciar sesión
+				</button>
+				<button
+					class="tab"
+					class:active={mode === 'signup'}
+					onclick={() => (mode = 'signup')}
+				>
+					Registrarse
+				</button>
+			</div>
 
-					{#if data.unauthorized}
-						<p class="error">Acceso denegado</p>
-					{/if}
-					{#if form?.error}
-						<p class="error">{form.error}</p>
-					{/if}
+			{#if mode === 'login'}
+				<form method="POST" class="login-form">
+					<fieldset>
+						<legend>Iniciar sesión</legend>
 
-					<label for="email">Email (admin)</label>
-					<input
-						id="email"
-						name="email"
-						type="email"
-						value={emailValue}
-						required
-					/>
+						{#if data.unauthorized}
+							<p class="error">Acceso denegado</p>
+						{/if}
+						{#if form?.error && !form.signupSuccess}
+							<p class="error">{form.error}</p>
+						{/if}
 
-					<label for="password">Contraseña</label>
-					<input id="password" name="password" type="password" required />
+						<label for="email">Email</label>
+						<input id="email" name="email" type="email" bind:value={email} required />
 
-					<div class="field-row">
-						<button type="submit" formaction="?/admin">Entrar como Admin</button
-						>
-						<button type="submit" formaction="?/guest" formnovalidate
-							>Entrar como Invitado</button
-						>
-					</div>
-					<div class="field-row forgot-row">
-						<a href="/login/reset-password" class="forgot-link"
-							>¿Olvidaste tu contraseña?</a
-						>
-					</div>
-				</fieldset>
-			</form>
+						<label for="password">Contraseña</label>
+						<input id="password" name="password" type="password" bind:value={password} required />
+
+						<div class="field-row">
+							<button type="submit" formaction="?/login">Entrar</button>
+						</div>
+						<div class="field-row forgot-row">
+							<a href="/login/reset-password" class="forgot-link">¿Olvidaste tu contraseña?</a>
+						</div>
+						<div class="field-row guest-row">
+							<button type="submit" formaction="?/guest" formnovalidate>
+								Entrar como Invitado
+							</button>
+						</div>
+					</fieldset>
+				</form>
+			{:else}
+				<form method="POST" class="login-form">
+					<fieldset>
+						<legend>Crear cuenta</legend>
+
+						{#if form?.signupSuccess}
+							<p class="success">
+								Cuenta creada. Revisa tu email para confirmar el registro y luego inicia sesión.
+							</p>
+						{:else}
+							{#if form?.error}
+								<p class="error">{form.error}</p>
+							{/if}
+
+							<label for="signup-email">Email</label>
+							<input id="signup-email" name="email" type="email" required />
+
+							<label for="signup-password">Contraseña (mín. 6 caracteres)</label>
+							<input id="signup-password" name="password" type="password" required minlength="6" />
+
+							<div class="field-row">
+								<button type="submit" formaction="?/signup">Crear cuenta</button>
+							</div>
+						{/if}
+					</fieldset>
+				</form>
+			{/if}
 		</div>
 	</div>
 </main>
@@ -75,12 +111,36 @@
 		margin: 0 0 0.25rem;
 		color: #8b0000;
 	}
+	.success {
+		margin: 0 0 0.25rem;
+		color: #006400;
+	}
+	.tab-bar {
+		display: flex;
+		margin-bottom: 8px;
+	}
+	.tab {
+		flex: 1;
+		padding: 4px 8px;
+		border: 2px outset #c0c0c0;
+		background: silver;
+		cursor: pointer;
+		font-size: 13px;
+	}
+	.tab.active {
+		border: 2px inset #c0c0c0;
+		background: #dfdfdf;
+		font-weight: 700;
+	}
 	.forgot-row {
-		margin-top: 8px;
+		margin-top: 6px;
 		justify-content: center;
 	}
 	.forgot-link {
 		color: #00e;
 		font-size: 12px;
+	}
+	.guest-row {
+		justify-content: center;
 	}
 </style>
