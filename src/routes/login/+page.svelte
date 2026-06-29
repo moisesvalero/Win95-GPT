@@ -46,6 +46,11 @@
 							>Entrar como Invitado</button
 						>
 					</div>
+					<div class="field-row forgot-row">
+						<a href="/login/reset-password" class="forgot-link"
+							>¿Olvidaste tu contraseña?</a
+						>
+					</div>
 				</fieldset>
 			</form>
 		</div>
@@ -69,5 +74,13 @@
 	.error {
 		margin: 0 0 0.25rem;
 		color: #8b0000;
+	}
+	.forgot-row {
+		margin-top: 8px;
+		justify-content: center;
+	}
+	.forgot-link {
+		color: #00e;
+		font-size: 12px;
 	}
 </style>
