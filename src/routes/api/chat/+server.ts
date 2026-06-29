@@ -1,9 +1,14 @@
 import type { Role } from '$lib/types';
-import { openai } from '$lib/openai';
+import {
+	streamAI,
+	isAllowedModel,
+	isVisionModel,
+	getDefaultModel
+} from '$lib/ai';
 import { env as publicEnv } from '$env/dynamic/public';
 import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import type { AIMessage } from '$lib/ai';
 
 const API_SECURITY_HEADERS = {
 	'X-Content-Type-Options': 'nosniff',
@@ -18,7 +23,6 @@ interface ChatInputMessage {
 	content: string;
 }
 
-const ALLOWED_MINI_MODELS = new Set(['gpt-5.4-mini', 'gpt-4o-mini']);
 const FORCE_WEB_QUERY_REGEX =
 	/\b(busca|buscar|búscame|investiga|internet|online|web|hoy|ayer|último|ultima|ultimo|actual|resultado|marcador|noticia|news)\b/i;
 
@@ -88,7 +92,6 @@ const normalizeDuckDuckGoUrl = (rawHref: string): string | null => {
 			return decoded;
 		if (decoded.startsWith('//')) return `https:${decoded}`;
 
-		// DuckDuckGo redirect format: /l/?uddg=<encodedUrl>
 		if (decoded.startsWith('/l/?')) {
 			const u = new URL(`https://duckduckgo.com${decoded}`);
 			const uddg = u.searchParams.get('uddg');
@@ -111,7 +114,6 @@ const extractSearchResults = (
 ): Array<{ title: string; url: string }> => {
 	const results: Array<{ title: string; url: string }> = [];
 
-	// Main DDG HTML parser
 	const primary = [
 		...html.matchAll(
 			/<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi
@@ -125,7 +127,6 @@ const extractSearchResults = (
 		if (results.length >= 8) return results;
 	}
 
-	// Fallback parser for Lite/alternative markup
 	const fallback = [
 		...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)
 	];
@@ -135,7 +136,6 @@ const extractSearchResults = (
 		const title = decodeHtml(match[2]);
 		if (!url || !title) continue;
 		if (results.some((r) => r.url === url)) continue;
-		// Skip navigation/noise links
 		if (/duckduckgo\.com\/(html|lite|about|privacy|settings)/i.test(url))
 			continue;
 		results.push({ title, url });
@@ -347,12 +347,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		const requestedModel =
-			(model as string | undefined) || publicEnv.PUBLIC_MODEL || 'gpt-5.4-mini';
-		let selectedModel = ALLOWED_MINI_MODELS.has(requestedModel)
+			(model as string | undefined) ||
+			publicEnv.PUBLIC_MODEL ||
+			getDefaultModel();
+		let selectedModel = isAllowedModel(requestedModel)
 			? requestedModel
-			: 'gpt-5.4-mini';
-		if (imageDataUrl && selectedModel !== 'gpt-4o-mini') {
-			selectedModel = 'gpt-4o-mini';
+			: getDefaultModel();
+		if (imageDataUrl && !isVisionModel(selectedModel)) {
+			selectedModel = getDefaultModel();
 		}
 		const chatMessages = (messages as ChatInputMessage[]) ?? [];
 		const lastUserMessage = [...chatMessages]
@@ -371,12 +373,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				: 'Búsqueda web activa, pero las fuentes públicas no respondieron en este intento. Continúa respondiendo con tu conocimiento general y sugiere reintentar la búsqueda si se requieren datos en tiempo real.'
 			: null;
 
-		const messagePayload: ChatCompletionMessageParam[] = chatMessages.map(
-			(message) => ({
-				role: message.role,
-				content: message.content
-			})
-		);
+		const messagePayload: AIMessage[] = chatMessages.map((message) => ({
+			role: message.role,
+			content: message.content
+		}));
 		if (imageDataUrl && messagePayload.length > 0) {
 			const lastUserIndex = [...messagePayload]
 				.map((message, index) => ({ message, index }))
@@ -397,9 +397,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		}
 
-		const stream = await openai.chat.completions.create({
+		const stream = streamAI({
 			model: selectedModel,
-			stream: true,
 			messages: [
 				{
 					role: 'system',
@@ -413,17 +412,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					? [{ role: 'system' as const, content: webContext }]
 					: []),
 				...messagePayload
-			] satisfies ChatCompletionMessageParam[]
+			]
 		});
 
 		const encoder = new TextEncoder();
 		const readable = new ReadableStream({
 			async start(controller) {
-				for await (const chunk of stream) {
-					const text = chunk.choices[0]?.delta?.content || '';
-					if (text) controller.enqueue(encoder.encode(text));
+				try {
+					for await (const chunk of stream) {
+						if (chunk) controller.enqueue(encoder.encode(chunk));
+					}
+				} catch (err) {
+					const message =
+						err instanceof Error ? err.message : 'Error en streaming';
+					controller.enqueue(encoder.encode(`\n\nError: ${message}`));
+				} finally {
+					controller.close();
 				}
-				controller.close();
 			}
 		});
 

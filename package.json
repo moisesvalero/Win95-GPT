@@ -54,7 +54,6 @@
 		"@supabase/supabase-js": "^2.105.3",
 		"dompurify": "^3.4.2",
 		"marked": "^18.0.3",
-		"openai": "^6.36.0",
 		"pdf-lib": "^1.17.1",
 		"prismjs": "^1.30.0"
 	}

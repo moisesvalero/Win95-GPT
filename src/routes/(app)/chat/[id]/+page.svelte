@@ -18,7 +18,7 @@
 	let conversationId = $derived(data.conversation.id as string);
 	let initialMessages = $derived((data.messages ?? []) as Message[]);
 	let messages = $derived(initialMessages);
-	let selectedModel = $state(env.PUBLIC_MODEL || 'gpt-5.4-mini');
+	let selectedModel = $state(env.PUBLIC_MODEL || 'openrouter/free');
 	let useWebSearch = $state(true);
 	let pendingExportFormat = $state<null | 'txt' | 'md' | 'json' | 'pdf'>(null);
 	let messageExports = $state<
@@ -222,9 +222,6 @@
 		};
 
 		attachedImageDataUrl = await shrinkImageDataUrl(originalDataUrl);
-		if (selectedModel !== 'gpt-4o-mini') {
-			selectedModel = 'gpt-4o-mini';
-		}
 	};
 
 	const saveMessage = async (role: Role, content: string) => {
@@ -382,8 +379,8 @@
 		<div class="field-row model-row">
 			<label for="model">Modelo:</label>
 			<select id="model" bind:value={selectedModel} disabled={isStreaming}>
-				<option value="gpt-5.4-mini">gpt-5.4-mini</option>
-				<option value="gpt-4o-mini">gpt-4o-mini (visión)</option>
+				<option value="openrouter/free">OpenRouter (free)</option>
+				<option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
 			</select>
 			<button
 				type="button"
