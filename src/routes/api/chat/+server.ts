@@ -4,6 +4,7 @@ import {
 	isVisionModel,
 	getDefaultModel
 } from '$lib/ai';
+import { checkRateLimit } from '$lib/rate-limit';
 import { env as publicEnv } from '$env/dynamic/public';
 import type { RequestHandler } from './$types';
 import type { AIMessage } from '$lib/ai';
@@ -279,7 +280,22 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, getClientAddress }) => {
+	const ip = getClientAddress();
+	const { allowed, remaining, resetIn } = checkRateLimit(ip);
+	if (!allowed) {
+		return new Response(
+			`Demasiadas solicitudes. Intenta de nuevo en ${Math.ceil(resetIn / 1000)} segundos.`,
+			{
+				status: 429,
+				headers: {
+					'Retry-After': String(Math.ceil(resetIn / 1000)),
+					...API_SECURITY_HEADERS
+				}
+			}
+		);
+	}
+
 	try {
 		const { messages, conversationId, model, useWeb, imageDataUrl } =
 			await request.json();
