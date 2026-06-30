@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Message, Role } from '$lib/types';
+	import type { Message } from '$lib/types';
 	import type { PageData } from './$types';
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
@@ -224,24 +224,6 @@
 		attachedImageDataUrl = await shrinkImageDataUrl(originalDataUrl);
 	};
 
-	const saveMessage = async (role: Role, content: string) => {
-		await fetch(`/api/chat?id=${conversationId}&persist=1`, {
-			method: 'PUT',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ role, content })
-		});
-	};
-
-	const updateTitleIfNeeded = async (firstText: string) => {
-		if (messages.length > 2) return;
-		const title = firstText.split(/\s+/).slice(0, 6).join(' ');
-		await fetch(`/api/chat?id=${conversationId}&title=1`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ title: title || 'Nueva conversación' })
-		});
-	};
-
 	const send = async () => {
 		const content = prompt.trim();
 		if ((!content && !attachedImageDataUrl) || isStreaming) return;
@@ -258,7 +240,6 @@
 			created_at: new Date().toISOString()
 		};
 		messages = [...messages, userMessage];
-		await saveMessage('user', userMessage.content);
 
 		const assistantMessage: Message = {
 			id: crypto.randomUUID(),
@@ -313,7 +294,6 @@
 			);
 		}
 
-		await saveMessage('assistant', finalText);
 		attachedImageDataUrl = '';
 		attachedImageName = '';
 		if (pendingExportFormat) {
@@ -323,7 +303,6 @@
 			};
 		}
 		pendingExportFormat = null;
-		await updateTitleIfNeeded(content);
 		isStreaming = false;
 	};
 

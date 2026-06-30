@@ -1,4 +1,3 @@
-import type { Role } from '$lib/types';
 import {
 	streamAI,
 	isAllowedModel,
@@ -6,7 +5,6 @@ import {
 	getDefaultModel
 } from '$lib/ai';
 import { env as publicEnv } from '$env/dynamic/public';
-import { env as privateEnv } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import type { AIMessage } from '$lib/ai';
 
@@ -19,18 +17,12 @@ const API_SECURITY_HEADERS = {
 };
 
 interface ChatInputMessage {
-	role: Role;
+	role: 'user' | 'assistant' | 'system';
 	content: string;
 }
 
 const FORCE_WEB_QUERY_REGEX =
 	/\b(busca|buscar|búscame|investiga|internet|online|web|hoy|ayer|último|ultima|ultimo|actual|resultado|marcador|noticia|news)\b/i;
-
-const getDemoEmails = () =>
-	(privateEnv.DEMO_EMAILS ?? '')
-		.split(',')
-		.map((email) => email.trim().toLowerCase())
-		.filter(Boolean);
 
 const fetchWithTimeout = async (url: string, timeoutMs = 8000) => {
 	const controller = new AbortController();
@@ -148,7 +140,7 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 	try {
 		const sources: Array<{ title: string; url: string; snippet: string }> = [];
 
-		// 0) Google News RSS search (gratis, muy fiable para actualidad)
+		// 0) Google News RSS search
 		const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=es&gl=ES&ceid=ES:es`;
 		const rssText = await fetchTextWithTimeout(rssUrl, 9000);
 		if (rssText) {
@@ -177,7 +169,7 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 			}
 		}
 
-		// 1) DuckDuckGo Instant Answer API (gratis y estable)
+		// 1) DuckDuckGo Instant Answer API
 		type DdgTopic = { Text?: string; FirstURL?: string; Topics?: DdgTopic[] };
 		type DdgInstant = {
 			AbstractText?: string;
@@ -218,7 +210,7 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 			}
 		}
 
-		// 2) DuckDuckGo HTML/Lite scraping (fallback adicional)
+		// 2) DuckDuckGo HTML/Lite scraping
 		const candidateUrls = [
 			`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
 			`https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(query)}`
@@ -255,7 +247,7 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 			sources.push({ title, url, snippet });
 		}
 
-		// 3) Wikipedia API (gratis) como último fallback general
+		// 3) Wikipedia API como fallback
 		if (!sources.length) {
 			type WikiSearchItem = { title: string; snippet: string; pageid: number };
 			type WikiSearchResponse = {
@@ -287,64 +279,10 @@ const fetchWebContext = async (query: string): Promise<string | null> => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
-	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401 });
-
+export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { messages, conversationId, model, useWeb, imageDataUrl } =
 			await request.json();
-		const userEmail = (session.user.email ?? '').toLowerCase();
-		const demoEmails = getDemoEmails();
-		const isGuestUser =
-			userEmail !== '' &&
-			userEmail === (privateEnv.GUEST_EMAIL ?? '').trim().toLowerCase();
-		const isDemoUser = demoEmails.includes(userEmail) || isGuestUser;
-
-		if (isDemoUser) {
-			const maxPromptChars = Number(
-				isGuestUser
-					? (privateEnv.GUEST_MAX_PROMPT_CHARS ?? '700')
-					: (privateEnv.DEMO_MAX_PROMPT_CHARS ?? '1200')
-			);
-			const maxResponsesPerDay = Number(
-				isGuestUser
-					? (privateEnv.GUEST_MAX_RESPONSES_PER_DAY ?? '8')
-					: (privateEnv.DEMO_MAX_RESPONSES_PER_DAY ?? '20')
-			);
-			const today = new Date();
-			today.setHours(0, 0, 0, 0);
-			const todayIso = today.toISOString();
-
-			const latestUserPrompt = [...((messages as ChatInputMessage[]) ?? [])]
-				.reverse()
-				.find((message) => message.role === 'user')?.content;
-			if (latestUserPrompt && latestUserPrompt.length > maxPromptChars) {
-				return new Response(
-					`Cuenta demo: máximo ${maxPromptChars} caracteres por mensaje para controlar coste.`,
-					{ status: 429 }
-				);
-			}
-
-			const { count: responsesToday, error: usageError } = await locals.supabase
-				.from('messages')
-				.select('id, conversations!inner(user_id)', {
-					count: 'exact',
-					head: true
-				})
-				.eq('role', 'assistant')
-				.eq('conversations.user_id', session.user.id)
-				.gte('created_at', todayIso);
-
-			if (!usageError && (responsesToday ?? 0) >= maxResponsesPerDay) {
-				return new Response(
-					`Cuenta demo: límite diario alcanzado (${maxResponsesPerDay} respuestas). Vuelve mañana.`,
-					{
-						status: 429
-					}
-				);
-			}
-		}
 
 		const requestedModel =
 			(model as string | undefined) ||
@@ -449,64 +387,4 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}
 		);
 	}
-};
-
-export const PUT: RequestHandler = async ({ request, locals, url }) => {
-	const session = await locals.getSession();
-	if (!session) return new Response('Unauthorized', { status: 401 });
-	const conversationId = url.searchParams.get('id');
-	if (!conversationId)
-		return new Response('Missing conversation id', { status: 400 });
-
-	const { role, content } = (await request.json()) as {
-		role: Role;
-		content: string;
-	};
-	const { error } = await locals.supabase.from('messages').insert({
-		conversation_id: conversationId,
-		role,
-		content
-	});
-	if (error)
-		return new Response(error.message, {
-			status: 400,
-			headers: API_SECURITY_HEADERS
-		});
-
-	await locals.supabase
-		.from('conversations')
-		.update({ updated_at: new Date().toISOString() })
-		.eq('id', conversationId)
-		.eq('user_id', session.user.id);
-
-	return new Response('ok', { headers: API_SECURITY_HEADERS });
-};
-
-export const PATCH: RequestHandler = async ({ request, locals, url }) => {
-	const session = await locals.getSession();
-	if (!session)
-		return new Response('Unauthorized', {
-			status: 401,
-			headers: API_SECURITY_HEADERS
-		});
-	const conversationId = url.searchParams.get('id');
-	if (!conversationId)
-		return new Response('Missing conversation id', {
-			status: 400,
-			headers: API_SECURITY_HEADERS
-		});
-	const { title } = (await request.json()) as { title: string };
-
-	const { error } = await locals.supabase
-		.from('conversations')
-		.update({ title, updated_at: new Date().toISOString() })
-		.eq('id', conversationId)
-		.eq('user_id', session.user.id);
-
-	if (error)
-		return new Response(error.message, {
-			status: 400,
-			headers: API_SECURITY_HEADERS
-		});
-	return new Response('ok', { headers: API_SECURITY_HEADERS });
 };

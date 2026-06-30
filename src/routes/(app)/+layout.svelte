@@ -1,34 +1,19 @@
 <script lang="ts">
-	import { createBrowserSupabaseClient } from '$lib/supabase';
-	import type { Conversation } from '$lib/types';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { page } from '$app/stores';
 
 	let { data, children } = $props();
-	let conversations = $derived((data.conversations ?? []) as Conversation[]);
-	let taskTabs = $derived(conversations.slice(0, 8));
-	let activeConversationId = $derived.by(() => {
-		const match = $page.url.pathname.match(/^\/chat\/([^/]+)$/);
-		return match?.[1] ?? null;
-	});
 	let startOpen = $state(false);
 	let sidebarOpen = $state(false);
 	let windowMinimized = $state(false);
 	let windowClosed = $state(false);
 	let windowMaximized = $state(false);
 	let windowVisible = $derived(!windowMinimized && !windowClosed);
-	const supabase = createBrowserSupabaseClient();
 
 	const closeIfOutside = (event: MouseEvent) => {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
 		if (!target.closest('.taskbar')) startOpen = false;
-	};
-
-	const logout = async () => {
-		await supabase.auth.signOut();
-		await goto(resolve('/login'));
 	};
 
 	const newChat = async () => {
@@ -44,54 +29,8 @@
 	};
 
 	const closeCurrentChat = async () => {
-		if (!activeConversationId) {
-			windowClosed = true;
-			windowMinimized = false;
-			return;
-		}
-		await deleteConversation(activeConversationId);
-	};
-
-	const renameConversation = async (
-		conversationId: string,
-		currentTitle: string
-	) => {
-		const title = prompt('Nuevo nombre del chat', currentTitle)?.trim();
-		if (!title) return;
-
-		const response = await fetch(`/api/conversations/${conversationId}`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ title })
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			alert(errorText || 'No se pudo renombrar el chat');
-			return;
-		}
-
-		await invalidateAll();
-	};
-
-	const deleteConversation = async (conversationId: string) => {
-		if (!confirm('¿Borrar este chat?')) return;
-
-		const response = await fetch(`/api/conversations/${conversationId}`, {
-			method: 'DELETE'
-		});
-
-		if (!response.ok) {
-			const errorText = await response.text();
-			alert(errorText || 'No se pudo borrar el chat');
-			return;
-		}
-
-		if (window.location.pathname.includes(`/chat/${conversationId}`)) {
-			await goto(resolve('/chat'));
-		}
-
-		await invalidateAll();
+		windowClosed = true;
+		windowMinimized = false;
 	};
 
 	const projects = [
@@ -147,13 +86,6 @@
 		<div class="window main-window" class:maximized={windowMaximized}>
 			<div class="title-bar">
 				<div class="title-bar-text">Win95 GPT</div>
-				<button
-					class="sidebar-toggle"
-					onclick={() => (sidebarOpen = !sidebarOpen)}
-					aria-label="Toggle sidebar"
-				>
-					☰
-				</button>
 				<div class="title-bar-controls">
 					<button aria-label="Minimize" onclick={() => (windowMinimized = true)}
 					></button>
@@ -169,47 +101,19 @@
 					<div class="field-row-stacked">
 						<strong>Chats</strong>
 						<ul class="tree-view conv-list">
-							{#each conversations as conversation (conversation.id)}
-								<li class="chat-item">
-									<button
-										type="button"
-										class="chat-link"
-										onclick={() => {
-											sidebarOpen = false;
-											goto(resolve(`/chat/${conversation.id}`));
-										}}
-									>
-										📁 {conversation.title}
-									</button>
-									<div class="chat-actions">
-										<button
-											type="button"
-											class="small-btn"
-											onclick={(event) => {
-												event.stopPropagation();
-												void renameConversation(
-													conversation.id,
-													conversation.title
-												);
-											}}
-										>
-											Renombrar
-										</button>
-										<button
-											type="button"
-											class="small-btn"
-											onclick={(event) => {
-												event.stopPropagation();
-												void deleteConversation(conversation.id);
-											}}
-										>
-											Borrar
-										</button>
-									</div>
-								</li>
-							{/each}
+							<li>
+								<button
+									type="button"
+									class="chat-link"
+									onclick={() => {
+										sidebarOpen = false;
+										goto(resolve('/chat/new'));
+									}}
+								>
+									Nuevo chat
+								</button>
+							</li>
 						</ul>
-						<button onclick={newChat}>📄 Nuevo chat</button>
 					</div>
 				</aside>
 				<section class="content">{@render children()}</section>
@@ -228,18 +132,7 @@
 		Inicio
 	</button>
 	<div class="task-middle">
-		<div class="task-tabs">
-			{#each taskTabs as tab (tab.id)}
-				<button
-					class="task-tab"
-					class:active={$page.url.pathname === `/chat/${tab.id}`}
-					onclick={() => goto(resolve(`/chat/${tab.id}`))}
-					title={tab.title}
-				>
-					📄 {tab.title}
-				</button>
-			{/each}
-		</div>
+		<div class="task-tabs"></div>
 	</div>
 	<div class="clock">
 		{new Date().toLocaleTimeString('es-ES', {
@@ -280,9 +173,6 @@
 						{project.name}
 					</a>
 				{/each}
-				<div class="start-section-label">Web Projects</div>
-				<hr />
-				<button onclick={logout}>🔌 Cerrar sesión</button>
 			</div>
 		</div>
 	{/if}
@@ -357,12 +247,6 @@
 		border-right: 1px solid #808080;
 		padding-right: 8px;
 	}
-	.sidebar-toggle {
-		display: none;
-		margin-left: auto;
-		margin-right: 8px;
-		min-width: 30px;
-	}
 	.conv-list {
 		height: 60vh;
 		overflow-y: auto;
@@ -425,30 +309,6 @@
 	.yellow {
 		background: #ffcc00;
 	}
-	.task-tabs {
-		display: flex;
-		gap: 4px;
-		overflow-x: auto;
-		white-space: nowrap;
-		padding-bottom: 1px;
-		min-width: 0;
-		flex: 1;
-	}
-	.task-tab {
-		border: 2px outset #c0c0c0;
-		background: silver;
-		padding: 2px 8px;
-		min-width: 120px;
-		max-width: 220px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		text-align: left;
-	}
-	.task-tab.active {
-		border: 2px inset #c0c0c0;
-		background: #dfdfdf;
-	}
 	.clock {
 		border: 2px inset #c0c0c0;
 		padding: 2px 6px;
@@ -466,7 +326,6 @@
 		display: grid;
 		gap: 8px;
 	}
-	.menu-body button,
 	.menu-body a {
 		text-align: left;
 		text-decoration: none;
@@ -509,27 +368,7 @@
 		min-width: 0;
 		width: 100%;
 	}
-	.chat-item {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 2px 0;
-	}
-	.chat-actions {
-		display: flex;
-		gap: 4px;
-		flex-shrink: 0;
-	}
-	.small-btn {
-		min-width: auto;
-		padding: 1px 6px;
-		font-size: 11px;
-		line-height: 1.2;
-	}
 	@media (max-width: 900px) {
-		.sidebar-toggle {
-			display: inline-block;
-		}
 		.body {
 			grid-template-columns: 1fr;
 		}
@@ -542,15 +381,6 @@
 			font-size: 11px;
 			padding-inline: 6px;
 			gap: 4px;
-		}
-		.task-tabs {
-			gap: 3px;
-		}
-		.task-tab {
-			padding: 1px 6px;
-			min-width: 88px;
-			max-width: 128px;
-			font-size: 11px;
 		}
 		.clock {
 			font-size: 11px;
@@ -569,12 +399,6 @@
 		}
 		.sidebar.open {
 			display: block;
-		}
-		.chat-item {
-			align-items: flex-start;
-		}
-		.chat-actions {
-			flex-wrap: wrap;
 		}
 	}
 	@media (max-width: 520px) {

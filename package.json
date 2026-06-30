@@ -50,8 +50,6 @@
 		"vitest": "^4.1.8"
 	},
 	"dependencies": {
-		"@supabase/ssr": "^0.10.3",
-		"@supabase/supabase-js": "^2.105.3",
 		"dompurify": "^3.4.2",
 		"marked": "^18.0.3",
 		"pdf-lib": "^1.17.1",
